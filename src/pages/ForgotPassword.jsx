@@ -1,26 +1,25 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { Receipt, Mail, Lock, AlertCircle } from 'lucide-react'
+import { Receipt, Mail, AlertCircle, CheckCircle } from 'lucide-react'
 
-export default function Login() {
+export default function ForgotPassword() {
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const { signIn } = useAuth()
-  const navigate = useNavigate()
+  const [message, setMessage] = useState({ type: '', text: '' })
+  const { resetPassword } = useAuth()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
-      setError('')
+      setMessage({ type: '', text: '' })
       setLoading(true)
-      const { error } = await signIn({ email, password })
+      const { error } = await resetPassword(email)
       if (error) throw error
-      navigate('/')
+      setMessage({ type: 'success', text: 'Revisa tu bandeja de entrada o spam. Te hemos enviado un enlace para restablecer tu contraseña.' })
+      setEmail('')
     } catch (err) {
-      setError('Error al iniciar sesión. Verifica tus credenciales.')
+      setMessage({ type: 'error', text: err.message || 'Error al enviar el correo. Verifica tu dirección.' })
     } finally {
       setLoading(false)
     }
@@ -36,21 +35,25 @@ export default function Login() {
       <div className="w-full max-w-md relative z-10 animate-in zoom-in-95 duration-500">
         <div className="text-center mb-8">
           <div className="inline-flex h-16 w-16 rounded-2xl bg-gradient-to-br from-mint-500 to-mint-600 items-center justify-center shadow-lg shadow-mint-500/30 ring-4 ring-white/50 dark:ring-white/10 mb-6">
-            <Receipt className="h-8 w-8 text-white" />
+             <Receipt className="h-8 w-8 text-white" />
           </div>
           <h2 className="text-3xl font-extrabold text-deep-900 dark:text-white tracking-tight">
-            Bienvenido a Balanza
+             Recuperar Acceso
           </h2>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 font-medium">
-            Control exacto, cuentas claras.
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 font-medium px-4">
+             Ingresa el correo con el que te registraste y te enviaremos un enlace seguro.
           </p>
         </div>
 
         <div className="glass-panel rounded-3xl p-8 border border-white/20 dark:border-white/5 shadow-2xl">
-          {error && (
-            <div className="mb-6 p-4 rounded-2xl bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/50 flex items-center gap-3 animate-in fade-in">
-              <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0" />
-              <p className="text-sm font-bold text-red-600 dark:text-red-400">{error}</p>
+          {message.text && (
+            <div className={`mb-6 p-4 rounded-2xl border flex items-start gap-3 animate-in fade-in ${
+               message.type === 'error' 
+                 ? 'bg-red-50 border-red-100 text-red-600 dark:bg-red-900/20 dark:border-red-900/50 dark:text-red-400' 
+                 : 'bg-mint-50 border-mint-100 text-mint-700 dark:bg-mint-900/20 dark:border-mint-900/50 dark:text-mint-400'
+            }`}>
+              {message.type === 'error' ? <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" /> : <CheckCircle className="h-5 w-5 shrink-0 mt-0.5" />}
+              <p className="text-sm font-bold leading-relaxed">{message.text}</p>
             </div>
           )}
 
@@ -72,41 +75,19 @@ export default function Login() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Contraseña</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  type="password"
-                  required
-                  className="block w-full rounded-2xl border-0 py-3.5 pl-12 pr-4 text-gray-900 dark:text-white dark:bg-deep-950/50 bg-white/50 shadow-inner ring-1 ring-inset ring-gray-200 dark:ring-white/10 focus:ring-2 focus:ring-inset focus:ring-mint-500 text-sm font-medium transition outline-none"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
-              <div className="flex justify-end mt-3">
-                <Link to="/forgot-password" className="text-sm font-bold text-mint-600 hover:text-mint-500 hover:underline dark:text-mint-400 transition-colors">
-                  ¿Olvidaste tu contraseña?
-                </Link>
-              </div>
-            </div>
-
             <button
               type="submit"
               disabled={loading}
               className="flex w-full justify-center rounded-2xl bg-gradient-to-r from-mint-500 to-mint-600 px-4 py-4 text-sm font-bold text-white shadow-lg shadow-mint-500/30 hover:shadow-mint-500/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint-500 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
             >
-              {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
+              {loading ? 'Enviando...' : 'Enviar enlace seguro'}
             </button>
           </form>
 
           <p className="mt-8 text-center text-sm text-gray-600 dark:text-gray-400 font-medium">
-            ¿No tienes una cuenta?{' '}
-            <Link to="/register" className="font-bold text-mint-600 hover:text-mint-500 dark:text-mint-400 transition-colors">
-              Regístrate gratis
+            ¿Recordaste tu contraseña?{' '}
+            <Link to="/login" className="font-bold text-mint-600 hover:text-mint-500 dark:text-mint-400 transition-colors">
+              Volver al Login
             </Link>
           </p>
         </div>

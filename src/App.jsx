@@ -11,6 +11,7 @@ import Categories from './pages/Categories'
 import Expenses from './pages/Expenses'
 import Reports from './pages/Reports'
 import Settings from './pages/Settings'
+import ForgotPassword from './pages/ForgotPassword'
 
 function App() {
   return (
@@ -20,7 +21,7 @@ function App() {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
-            
+            <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route 
               path="/*" 
               element={
