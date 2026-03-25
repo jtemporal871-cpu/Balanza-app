@@ -20,7 +20,7 @@ export default function Settings() {
     setMessage({ type: '', text: '' })
     try {
       const updates = { data: { display_name: name } }
-      if (email !== user.email) {
+      if (user && email !== user.email) {
          updates.email = email
       }
 
