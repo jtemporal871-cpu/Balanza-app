@@ -17,7 +17,7 @@ export default function Register() {
     try {
       setError('')
       setLoading(true)
-      const { error } = await signUp({ email, password }, { data: { display_name: name } })
+      const { error } = await signUp(email, password, name)
       if (error) throw error
       navigate('/')
     } catch (err) {
