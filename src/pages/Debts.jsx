@@ -277,7 +277,7 @@ export default function Debts() {
                  <div className="grid grid-cols-2 gap-5">
                    <div className="col-span-2 sm:col-span-1">
                      <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Monto Préstamo Inicial</label>
-                     <input type="number" step="0.01" required value={form.total_amount} onChange={e => setForm({...form, total_amount: e.target.value})}
+                     <input type="text" inputMode="numeric" required value={form.total_amount ? new Intl.NumberFormat('es-CO').format(form.total_amount) : ''} onChange={e => setForm({...form, total_amount: e.target.value.replace(/\D/g, '')})}
                        className="w-full rounded-2xl border border-gray-200 px-5 py-3.5 text-sm font-bold focus:border-mint-500 focus:ring-mint-500 shadow-inner dark:bg-deep-950 dark:border-white/10 dark:text-white transition outline-none" />
                    </div>
                    <div className="col-span-2 sm:col-span-1">

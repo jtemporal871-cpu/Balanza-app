@@ -444,7 +444,7 @@ export default function Expenses() {
                       <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-5">
                         <span className="text-gray-500 font-bold">$</span>
                       </div>
-                      <input type="number" step="0.01" required value={amount} onChange={e => setAmount(e.target.value)}
+                      <input type="text" inputMode="numeric" required value={amount ? new Intl.NumberFormat('es-CO').format(amount) : ''} onChange={e => setAmount(e.target.value.replace(/\D/g, ''))}
                         className="w-full rounded-2xl border border-gray-200 pl-10 pr-5 py-3.5 text-base font-bold focus:border-mint-500 focus:ring-mint-500 shadow-inner dark:bg-deep-950 dark:border-white/10 dark:text-white transition outline-none"
                         placeholder="0"
                       />
