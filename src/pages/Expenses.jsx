@@ -214,10 +214,22 @@ export default function Expenses() {
       const totalAmount = Number(amount)
       const preparedSplits = validateAndPrepareSplits(totalAmount)
 
+      let finalCategoryId = categoryId || null
+      if (isDebtPayment && !finalCategoryId) {
+        let debtCat = categories.find(c => c.name.toLowerCase() === 'deudas')
+        if (!debtCat) {
+          const { data: newCat, error: catError } = await supabase.from('categories').insert([{ user_id: user.id, name: 'Deudas', icon: 'Tag', color: 'bg-rose-500 text-white' }]).select()
+          if (catError) throw catError
+          debtCat = newCat[0]
+          setCategories(prev => [...prev, debtCat])
+        }
+        finalCategoryId = debtCat.id
+      }
+
       const expenseData = {
         user_id: user.id,
         payer_id: payerId,
-        category_id: categoryId || null,
+        category_id: finalCategoryId,
         amount: totalAmount,
         description: description.trim(),
         date,
@@ -485,11 +497,13 @@ export default function Expenses() {
 
                 <div className="grid grid-cols-2 gap-6">
                   <div className="col-span-2 sm:col-span-1">
-                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Categoría</label>
-                    <select required value={categoryId} onChange={e => setCategoryId(e.target.value)}
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                      Categoría {isDebtPayment && <span className="text-gray-400 font-normal ml-1">(Opcional)</span>}
+                    </label>
+                    <select required={!isDebtPayment} value={categoryId} onChange={e => setCategoryId(e.target.value)}
                       className="w-full rounded-2xl border border-gray-200 px-5 py-3.5 text-sm font-medium focus:border-mint-500 focus:ring-mint-500 shadow-inner dark:bg-deep-950 dark:border-white/10 dark:text-white transition outline-none"
                     >
-                      <option value="" disabled>Seleccione...</option>
+                      <option value="" disabled={!isDebtPayment}>Seleccione...</option>
                       {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                   </div>
