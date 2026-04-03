@@ -15,6 +15,7 @@ export default function Expenses() {
   const [participants, setParticipants] = useState([])
   const [categories, setCategories] = useState([])
   const [debtsList, setDebtsList] = useState([])
+  const [accounts, setAccounts] = useState([])
   
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -24,6 +25,7 @@ export default function Expenses() {
 
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
+  const [editingOriginalData, setEditingOriginalData] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   
   const [amount, setAmount] = useState('')
@@ -31,6 +33,7 @@ export default function Expenses() {
   const [date, setDate] = useState(new Date().toISOString().slice(0,10))
   const [categoryId, setCategoryId] = useState('')
   const [payerId, setPayerId] = useState('')
+  const [accountId, setAccountId] = useState('')
   const [splitType, setSplitType] = useState('equal') 
   const [isDebtPayment, setIsDebtPayment] = useState(false)
   const [selectedDebtId, setSelectedDebtId] = useState('')
@@ -50,19 +53,22 @@ export default function Expenses() {
 
   const fetchInitialData = async () => {
     try {
-      const [catRes, partRes, debtRes] = await Promise.all([
+      const [catRes, partRes, debtRes, accRes] = await Promise.all([
         supabase.from('categories').select('*').order('name'),
         supabase.from('participants').select('*').order('name'),
-        supabase.from('debts').select('*').eq('status', 'active').order('name')
+        supabase.from('debts').select('*').eq('status', 'active').order('name'),
+        supabase.from('accounts').select('*').eq('is_active', true).order('name')
       ])
       
       if (catRes.error) throw catRes.error
       if (partRes.error) throw partRes.error
       if (debtRes.error) throw debtRes.error
+      if (accRes.error) throw accRes.error
       
       setCategories(catRes.data || [])
       setParticipants(partRes.data || [])
       setDebtsList(debtRes.data || [])
+      setAccounts(accRes.data || [])
     } catch (err) {
       setError('Error al cargar datos base.')
     }
@@ -108,11 +114,13 @@ export default function Expenses() {
     setError('')
     if (expense) {
       setEditingId(expense.id)
+      setEditingOriginalData(expense)
       setAmount(expense.amount.toString())
       setDescription(expense.description)
       setDate(expense.date)
       setCategoryId(expense.category_id || '')
       setPayerId(expense.payer_id)
+      setAccountId(expense.account_id || '')
       setSplitType(expense.split_type)
       setIsDebtPayment(!!expense.debt_id)
       setSelectedDebtId(expense.debt_id || '')
@@ -128,11 +136,13 @@ export default function Expenses() {
       setSplits(splitData)
     } else {
       setEditingId(null)
+      setEditingOriginalData(null)
       setAmount('')
       setDescription('')
       setDate(new Date().toISOString().slice(0, 10))
       setCategoryId(categories.length > 0 ? categories[0].id : '')
       setPayerId(participants.length > 0 ? participants[0].id : '')
+      setAccountId('')
       setSplitType('equal')
       setIsDebtPayment(false)
       setSelectedDebtId('')
@@ -236,7 +246,8 @@ export default function Expenses() {
         description: description.trim(),
         date,
         split_type: splitType,
-        debt_id: isDebtPayment && selectedDebtId ? selectedDebtId : null
+        debt_id: isDebtPayment && selectedDebtId ? selectedDebtId : null,
+        account_id: accountId || null
       }
 
       if (editingId) {
@@ -249,6 +260,29 @@ export default function Expenses() {
         const { error: insError } = await supabase.from('expense_splits').insert(preparedSplits.map(s => ({ ...s, expense_id: editingId })))
         if (insError) throw insError
 
+        // Actualizar balance de cuentas (Reversión/Inyección dinámica)
+        if (editingOriginalData.account_id || accountId) {
+           const oldAccId = editingOriginalData.account_id
+           const newAccId = accountId || null
+           const oldAmount = Number(editingOriginalData.amount)
+           const newAmount = totalAmount
+
+           if (oldAccId === newAccId && newAccId) {
+              const diff = newAmount - oldAmount
+              const acc = accounts.find(a => a.id === newAccId)
+              if (acc) await supabase.from('accounts').update({ balance: acc.balance - diff }).eq('id', newAccId)
+           } else {
+              if (oldAccId) {
+                 const oldAcc = accounts.find(a => a.id === oldAccId)
+                 if (oldAcc) await supabase.from('accounts').update({ balance: oldAcc.balance + oldAmount }).eq('id', oldAccId)
+              }
+              if (newAccId) {
+                 const newAcc = accounts.find(a => a.id === newAccId)
+                 if (newAcc) await supabase.from('accounts').update({ balance: newAcc.balance - newAmount }).eq('id', newAccId)
+              }
+           }
+        }
+
       } else {
         const { data: expRes, error: expError } = await supabase.from('expenses').insert([expenseData]).select()
         if (expError) throw expError
@@ -257,6 +291,12 @@ export default function Expenses() {
         const { error: insError } = await supabase.from('expense_splits').insert(preparedSplits.map(s => ({ ...s, expense_id: newExpId })))
         if (insError) throw insError
         
+        // Descontar plata de la cuenta bancaria inmediatamente
+        if (accountId) {
+           const newAcc = accounts.find(a => a.id === accountId)
+           if (newAcc) await supabase.from('accounts').update({ balance: newAcc.balance - totalAmount }).eq('id', accountId)
+        }
+
         // Lógica dual de pago de deudas desde Gastos
         if (isDebtPayment && selectedDebtId) {
           const debt = debtsList.find(d => d.id === selectedDebtId)
@@ -294,13 +334,13 @@ export default function Expenses() {
                   status: isPaidOff ? 'paid' : 'active'
                 }).eq('id', debt.id)
             }
-            // Recargar catálogo silenciosamente
             supabase.from('debts').select('*').eq('status', 'active').then(r => r.data && setDebtsList(r.data))
           }
         }
       }
 
       setShowForm(false)
+      fetchInitialData() // refresh accounts for internal balance calculation next time
       fetchExpenses()
     } catch (err) {
       setError(err.message || 'Error al guardar gasto.')
@@ -309,12 +349,20 @@ export default function Expenses() {
     }
   }
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (expense) => {
     if (!confirm('¿Seguro que deseas eliminar este gasto de forma permanente?')) return
     try {
-      const { error } = await supabase.from('expenses').delete().eq('id', id)
+      // Devolver plata a la cuenta
+      if (expense.account_id) {
+         const acc = accounts.find(a => a.id === expense.account_id)
+         if (acc) await supabase.from('accounts').update({ balance: acc.balance + Number(expense.amount) }).eq('id', expense.account_id)
+      }
+      
+      const { error } = await supabase.from('expenses').delete().eq('id', expense.id)
       if (error) throw error
-      setExpenses(expenses.filter(e => e.id !== id))
+      
+      setExpenses(expenses.filter(e => e.id !== expense.id))
+      fetchInitialData() // refresh cuentas
     } catch (err) {
       setError('Error al eliminar gasto.')
     }
@@ -430,7 +478,7 @@ export default function Expenses() {
                     <button onClick={() => openForm(expense)} className="p-3 text-gray-400 hover:text-mint-600 hover:bg-mint-50 rounded-xl transition-all dark:hover:text-mint-400 dark:hover:bg-white/5" title="Editar">
                       <Edit2 className="h-5 w-5" />
                     </button>
-                    <button onClick={() => handleDelete(expense.id)} className="p-3 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all dark:hover:text-rose-400 dark:hover:bg-white/5" title="Eliminar">
+                    <button onClick={() => handleDelete(expense)} className="p-3 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all dark:hover:text-rose-400 dark:hover:bg-white/5" title="Eliminar">
                       <Trash2 className="h-5 w-5" />
                     </button>
                   </div>
@@ -545,6 +593,19 @@ export default function Expenses() {
                       <option value="" disabled>Seleccione quién pagó</option>
                       {participants.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Cuenta Origen de Pago <span className="text-gray-400 font-normal ml-1">(Opcional)</span></label>
+                    <div className="bg-blue-50 dark:bg-blue-900/10 rounded-2xl p-4 border border-blue-100 dark:border-blue-900/30">
+                       <select value={accountId} onChange={e => setAccountId(e.target.value)}
+                         className="w-full rounded-xl border-blue-200 px-4 py-3 text-sm font-bold text-blue-900 focus:border-blue-500 focus:ring-blue-500 shadow-inner dark:bg-deep-900 dark:border-white/10 dark:text-white outline-none bg-white">
+                         <option value="">No descontar de ninguna cuenta (En efectivo por fuera)</option>
+                         {accounts.map(a => <option key={a.id} value={a.id}>Descontar saldo de: {a.name} (Balance actual: {formatCOP(a.balance)})</option>)}
+                       </select>
+                       <p className="text-xs font-medium text-blue-600 dark:text-blue-400 mt-2">
+                         Si seleccionas una de tus cuentas, restaremos este gasto de su saldo automáticamente.
+                       </p>
+                    </div>
                   </div>
                 </div>
 

@@ -14,7 +14,8 @@ import Settings from './pages/Settings'
 import ForgotPassword from './pages/ForgotPassword'
 import UpdatePassword from './pages/UpdatePassword'
 import Debts from './pages/Debts'
-
+import Accounts from './pages/Accounts'
+import Incomes from './pages/Incomes'
 function App() {
   return (
     <ThemeProvider>
@@ -38,6 +39,8 @@ function App() {
                       <Route path="/reports" element={<Reports />} />
                       <Route path="/settings" element={<Settings />} />
                       <Route path="/debts" element={<Debts />} />
+                      <Route path="/accounts" element={<Accounts />} />
+                      <Route path="/incomes" element={<Incomes />} />
                     </Routes>
                   </MainLayout>
                 </ProtectedRoute>

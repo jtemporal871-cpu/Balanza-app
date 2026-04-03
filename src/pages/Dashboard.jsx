@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../services/supabaseClient'
 import { useAuth } from '../context/AuthContext'
-import { Wallet, TrendingDown, Users, Activity, Check, Calendar, ArrowRight, Tag, ShoppingCart, Utensils, Car, Home, Coffee, Tv, Heart, Zap, X, AlertCircle } from 'lucide-react'
+import { Wallet, TrendingDown, Users, Activity, Check, Calendar, ArrowRight, Tag, ShoppingCart, Utensils, Car, Home, Coffee, Tv, Heart, Zap, X, AlertCircle, ArrowUpCircle, Landmark } from 'lucide-react'
 import { formatCOP } from '../utils/format'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
@@ -14,20 +14,22 @@ export default function Dashboard() {
   const rawFirstName = user?.user_metadata?.display_name?.split(' ')[0] || user?.email?.split('@')[0] || 'Usuario'
   const firstName = rawFirstName.charAt(0).toUpperCase() + rawFirstName.slice(1).toLowerCase()
   
-  const [data, setData] = useState({ participants: [], expenses: [], expenseSplits: [], settlements: [], categories: [], bankDebts: [] })
+  const [data, setData] = useState({ participants: [], expenses: [], expenseSplits: [], settlements: [], categories: [], bankDebts: [], accounts: [], incomes: [] })
   const [loading, setLoading] = useState(true)
   const [timeFilter, setTimeFilter] = useState('this_month')
 
   const fetchData = async () => {
     setLoading(true)
     try {
-      const [pRes, eRes, sRes, setRes, cRes, dRes] = await Promise.all([
+      const [pRes, eRes, sRes, setRes, cRes, dRes, aRes, iRes] = await Promise.all([
         supabase.from('participants').select('*'),
         supabase.from('expenses').select('*, participants(name), categories(name, icon, color)'),
         supabase.from('expense_splits').select('*'),
         supabase.from('settlements').select('*'),
         supabase.from('categories').select('*'),
-        supabase.from('debts').select('*').eq('status', 'active')
+        supabase.from('debts').select('*').eq('status', 'active'),
+        supabase.from('accounts').select('*').eq('is_active', true).order('name'),
+        supabase.from('incomes').select('*')
       ])
       
       setData({
@@ -36,7 +38,9 @@ export default function Dashboard() {
          expenseSplits: sRes.data || [],
          settlements: setRes.data || [],
          categories: cRes.data || [],
-         bankDebts: dRes.data || []
+         bankDebts: dRes.data || [],
+         accounts: aRes.data || [],
+         incomes: iRes.data || []
       })
     } catch (err) {
       console.error('Error cargando Dashboard:', err)
@@ -134,11 +138,15 @@ export default function Dashboard() {
   // ================= ÚLTIMOS GASTOS =================
   const lastExpenses = [...data.expenses].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5)
 
+  const totalBalance = data.accounts.reduce((sum, a) => sum + Number(a.balance), 0)
+  const incomesThisMonth = data.incomes.filter(i => i.date && i.date.startsWith(currentMonth))
+  const totalIncomesMes = incomesThisMonth.reduce((sum, i) => sum + Number(i.amount), 0)
+
   const metrics = [
-    { title: 'Gastos de este mes', value: formatCOP(totalMes), icon: TrendingDown, color: 'from-rose-500 to-rose-600' },
-    { title: 'Deudas Activas', value: formatCOP(totalBankDebtsAmount), icon: Wallet, color: 'from-mint-500 to-mint-600', href: '/debts' },
-    { title: 'Quien más aportó (mes)', value: topPayerInfo.name, subtitle: formatCOP(topPayerInfo.amount), icon: Activity, color: 'from-blue-500 to-blue-600' },
-    { title: 'Participantes', value: totalParticipants.toString(), icon: Users, color: 'from-purple-500 to-purple-600' }
+    { title: 'Saldo a Favor', value: formatCOP(totalBalance), icon: Wallet, color: 'from-blue-500 to-blue-600', href: '/accounts' },
+    { title: 'Ingresos del Mes', value: formatCOP(totalIncomesMes), icon: ArrowUpCircle, color: 'from-mint-500 to-mint-600', href: '/incomes' },
+    { title: 'Gastos del Mes', value: formatCOP(totalMes), icon: TrendingDown, color: 'from-rose-500 to-rose-600', href: '/expenses' },
+    { title: 'Deudas Activas', value: formatCOP(totalBankDebtsAmount), icon: Landmark, color: 'from-purple-500 to-purple-600', href: '/debts' }
   ]
 
   if (loading) {
@@ -258,6 +266,44 @@ export default function Dashboard() {
              )}
           </div>
 
+          {/* INGRESOS VS GASTOS (MES) */}
+          <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-gray-100 dark:border-white/5 relative overflow-hidden">
+             <div className="flex items-center justify-between mb-8">
+               <h3 className="text-xl font-extrabold text-deep-900 dark:text-white flex items-center gap-2">
+                 <Activity className="h-6 w-6 text-mint-500" /> Flujo del Mes Actual
+               </h3>
+             </div>
+             
+             <div className="space-y-6">
+               <div>
+                  <div className="flex justify-between mb-2">
+                    <span className="font-bold text-sm text-gray-600 dark:text-gray-300">Ingresos</span>
+                    <span className="font-black text-mint-600">{formatCOP(totalIncomesMes)}</span>
+                  </div>
+                  <div className="w-full bg-gray-100 dark:bg-white/5 rounded-full h-4 overflow-hidden shadow-inner">
+                    <div className="bg-mint-500 h-full rounded-full transition-all duration-1000" style={{ width: `${Math.min(100, (totalIncomesMes / ((totalIncomesMes + totalMes) || 1)) * 100)}%` }} />
+                  </div>
+               </div>
+               
+               <div>
+                  <div className="flex justify-between mb-2">
+                    <span className="font-bold text-sm text-gray-600 dark:text-gray-300">Gastos</span>
+                    <span className="font-black text-rose-500">{formatCOP(totalMes)}</span>
+                  </div>
+                  <div className="w-full bg-gray-100 dark:bg-white/5 rounded-full h-4 overflow-hidden shadow-inner">
+                    <div className="bg-rose-500 h-full rounded-full transition-all duration-1000" style={{ width: `${Math.min(100, (totalMes / ((totalIncomesMes + totalMes) || 1)) * 100)}%` }} />
+                  </div>
+               </div>
+
+               <div className="pt-6 border-t border-gray-100 dark:border-white/5 flex justify-between items-center">
+                 <span className="text-sm font-bold uppercase tracking-widest text-gray-500">Balance Neto Mensual</span>
+                 <span className={`text-2xl font-black ${totalIncomesMes - totalMes >= 0 ? 'text-mint-600' : 'text-rose-500'}`}>
+                   {totalIncomesMes - totalMes >= 0 ? '+' : ''}{formatCOP(totalIncomesMes - totalMes)}
+                 </span>
+               </div>
+             </div>
+          </div>
+
           {/* MIS DEUDAS BANCARIAS */}
           <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-gray-100 dark:border-white/5 relative overflow-hidden">
              <div className="flex items-center justify-between mb-6">
@@ -322,6 +368,37 @@ export default function Dashboard() {
 
         {/* COLUMNA DERECHA: Últimos gastos */}
         <div className="space-y-8">
+
+           {/* MIS CUENTAS */}
+           <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-blue-100 bg-gradient-to-br from-white to-blue-50 dark:from-deep-900 dark:to-blue-950/20 dark:border-blue-900/30 overflow-hidden relative group">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 blur-3xl rounded-full pointer-events-none" />
+              <div className="flex justify-between items-center mb-6 relative z-10">
+                <h2 className="text-xl font-extrabold text-deep-900 dark:text-white flex items-center gap-2">
+                  <Wallet className="h-6 w-6 text-blue-500" />
+                  Cuentas
+                </h2>
+                <button onClick={() => navigate('/accounts')} className="p-2 -mr-2 text-gray-400 hover:text-blue-500 rounded-full hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors">
+                  <ArrowRight className="h-5 w-5" />
+                </button>
+              </div>
+              
+              <div className="space-y-3 relative z-10">
+                {data.accounts.length === 0 ? (
+                  <p className="text-sm text-gray-500 font-medium text-center py-2">No has creado cuentas.</p>
+                ) : (
+                  data.accounts.map(acc => (
+                    <div key={acc.id} className="flex justify-between items-center p-3 bg-white/60 dark:bg-black/20 rounded-2xl border border-blue-100 dark:border-white/5 group-hover:border-blue-200 dark:group-hover:border-blue-900/50 transition-colors cursor-pointer" onClick={() => navigate('/accounts')}>
+                       <div>
+                         <p className="text-sm font-bold text-deep-900 dark:text-white">{acc.name}</p>
+                         <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{acc.type}</p>
+                       </div>
+                       <p className="text-base font-black text-blue-600 dark:text-blue-400">{formatCOP(acc.balance)}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+           </div>
+
            {/* TARJETA DE DEUDAS EXTERNAS */}
            <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-rose-100 bg-gradient-to-br from-white to-rose-50 dark:from-deep-900 dark:to-rose-950/20 dark:border-rose-900/30 overflow-hidden relative group">
               <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/10 blur-3xl rounded-full pointer-events-none" />
