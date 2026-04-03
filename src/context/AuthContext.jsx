@@ -9,14 +9,26 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     // Check active sessions and sets the user
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setUser(session?.user ?? null)
+      if (session?.user) {
+        const { data } = await supabase.from('users').select('currency').eq('id', session.user.id).single()
+        if (data?.currency) localStorage.setItem('balanza_currency', data.currency)
+      }
       setLoading(false)
     })
 
     // Listen for changes on auth state (sign in, sign out, etc.)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user ?? null)
+      
+      if (session?.user && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
+        const { data } = await supabase.from('users').select('currency').eq('id', session.user.id).single()
+        if (data?.currency) localStorage.setItem('balanza_currency', data.currency)
+      } else if (!session?.user) {
+        localStorage.removeItem('balanza_currency')
+      }
+      
       setLoading(false)
       
       if (event === 'PASSWORD_RECOVERY') {

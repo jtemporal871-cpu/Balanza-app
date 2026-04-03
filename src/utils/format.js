@@ -1,11 +1,14 @@
 export const formatCOP = (amount) => {
   if (isNaN(amount) || amount === null) return '$0';
   
-  return new Intl.NumberFormat('es-CO', {
+  const currency = localStorage.getItem('balanza_currency') || 'COP';
+  const locale = currency === 'COP' ? 'es-CO' : currency === 'USD' ? 'en-US' : currency === 'EUR' ? 'es-ES' : currency === 'MXN' ? 'es-MX' : 'es-CO';
+  
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
-    currency: 'COP',
+    currency: currency,
     minimumFractionDigits: 0,
-    maximumFractionDigits: 0
+    maximumFractionDigits: currency === 'COP' ? 0 : 2
   }).format(amount);
 };
 
