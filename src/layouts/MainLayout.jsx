@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { Home, Users, Tags, Menu, X, LogOut, Receipt, PieChart, Settings } from 'lucide-react'
+import { Home, Users, Tags, Menu, X, LogOut, Receipt, PieChart, Settings, Landmark } from 'lucide-react'
 
 export default function MainLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -11,6 +11,7 @@ export default function MainLayout({ children }) {
   const navigation = [
     { name: 'Dashboard', href: '/', icon: Home },
     { name: 'Gastos', href: '/expenses', icon: Receipt },
+    { name: 'Deudas', href: '/debts', icon: Landmark },
     { name: 'Participantes', href: '/participants', icon: Users },
     { name: 'Categorías', href: '/categories', icon: Tags },
     { name: 'Reportes', href: '/reports', icon: PieChart },

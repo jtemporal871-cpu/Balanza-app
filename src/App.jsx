@@ -13,6 +13,7 @@ import Reports from './pages/Reports'
 import Settings from './pages/Settings'
 import ForgotPassword from './pages/ForgotPassword'
 import UpdatePassword from './pages/UpdatePassword'
+import Debts from './pages/Debts'
 
 function App() {
   return (
@@ -36,6 +37,7 @@ function App() {
                       <Route path="/expenses" element={<Expenses />} />
                       <Route path="/reports" element={<Reports />} />
                       <Route path="/settings" element={<Settings />} />
+                      <Route path="/debts" element={<Debts />} />
                     </Routes>
                   </MainLayout>
                 </ProtectedRoute>

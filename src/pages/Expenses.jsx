@@ -14,6 +14,7 @@ export default function Expenses() {
   const [expenses, setExpenses] = useState([])
   const [participants, setParticipants] = useState([])
   const [categories, setCategories] = useState([])
+  const [debtsList, setDebtsList] = useState([])
   
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -31,6 +32,8 @@ export default function Expenses() {
   const [categoryId, setCategoryId] = useState('')
   const [payerId, setPayerId] = useState('')
   const [splitType, setSplitType] = useState('equal') 
+  const [isDebtPayment, setIsDebtPayment] = useState(false)
+  const [selectedDebtId, setSelectedDebtId] = useState('')
   
   const [splits, setSplits] = useState([])
 
@@ -46,16 +49,19 @@ export default function Expenses() {
 
   const fetchInitialData = async () => {
     try {
-      const [catRes, partRes] = await Promise.all([
+      const [catRes, partRes, debtRes] = await Promise.all([
         supabase.from('categories').select('*').order('name'),
-        supabase.from('participants').select('*').order('name')
+        supabase.from('participants').select('*').order('name'),
+        supabase.from('debts').select('*').eq('status', 'active').order('name')
       ])
       
       if (catRes.error) throw catRes.error
       if (partRes.error) throw partRes.error
+      if (debtRes.error) throw debtRes.error
       
       setCategories(catRes.data || [])
       setParticipants(partRes.data || [])
+      setDebtsList(debtRes.data || [])
     } catch (err) {
       setError('Error al cargar datos base.')
     }
@@ -107,6 +113,8 @@ export default function Expenses() {
       setCategoryId(expense.category_id || '')
       setPayerId(expense.payer_id)
       setSplitType(expense.split_type)
+      setIsDebtPayment(!!expense.debt_id)
+      setSelectedDebtId(expense.debt_id || '')
       
       const splitData = participants.map(p => {
         const existing = expense.expense_splits.find(es => es.participant_id === p.id)
@@ -125,6 +133,8 @@ export default function Expenses() {
       setCategoryId(categories.length > 0 ? categories[0].id : '')
       setPayerId(participants.length > 0 ? participants[0].id : '')
       setSplitType('equal')
+      setIsDebtPayment(false)
+      setSelectedDebtId('')
       
       setSplits(participants.map(p => ({
         participant_id: p.id,
@@ -211,7 +221,8 @@ export default function Expenses() {
         amount: totalAmount,
         description: description.trim(),
         date,
-        split_type: splitType
+        split_type: splitType,
+        debt_id: isDebtPayment && selectedDebtId ? selectedDebtId : null
       }
 
       if (editingId) {
@@ -231,6 +242,24 @@ export default function Expenses() {
         const newExpId = expRes[0].id
         const { error: insError } = await supabase.from('expense_splits').insert(preparedSplits.map(s => ({ ...s, expense_id: newExpId })))
         if (insError) throw insError
+        
+        // Auto-incrementar deuda solo al crear si fue vinculada
+        if (isDebtPayment && selectedDebtId) {
+          const debt = debtsList.find(d => d.id === selectedDebtId)
+          if (debt && debt.paid_installments < debt.total_installments) {
+            const newPaid = debt.paid_installments + 1
+            const isPaidOff = newPaid === debt.total_installments
+            const newRemaining = isPaidOff ? 0 : Math.max(0, debt.remaining_amount - debt.installment_amount)
+            await supabase.from('debts').update({
+              paid_installments: newPaid,
+              remaining_amount: newRemaining,
+              status: isPaidOff ? 'paid' : 'active'
+            }).eq('id', debt.id)
+            
+            // Recargar catálogo silenciosamente
+            supabase.from('debts').select('*').eq('status', 'active').then(r => r.data && setDebtsList(r.data))
+          }
+        }
       }
 
       setShowForm(false)
@@ -423,6 +452,35 @@ export default function Expenses() {
                     className="w-full rounded-2xl border border-gray-200 px-5 py-3.5 text-sm font-medium focus:border-mint-500 focus:ring-mint-500 shadow-inner dark:bg-deep-950 dark:border-white/10 dark:text-white transition outline-none"
                     placeholder="Ej. Cena hamburguesas, Uber al aeropuerto..."
                   />
+                </div>
+                
+                {/* CHECKBOX DEUDAS */}
+                <div className="bg-gray-50 dark:bg-deep-950 p-5 rounded-2xl border border-gray-100 dark:border-white/5 space-y-4">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      checked={isDebtPayment} 
+                      onChange={e => setIsDebtPayment(e.target.checked)}
+                      className="h-5 w-5 rounded border-gray-300 text-mint-600 focus:ring-mint-500 dark:border-white/20 dark:bg-deep-900 shadow-inner"
+                    />
+                    <span className="text-sm font-bold text-deep-900 dark:text-white">Este gasto es el pago de una deuda</span>
+                  </label>
+                  
+                  {isDebtPayment && (
+                    <div className="animate-in fade-in slide-in-from-top-2">
+                       <select 
+                         required 
+                         value={selectedDebtId} 
+                         onChange={e => setSelectedDebtId(e.target.value)}
+                         className="w-full rounded-xl border border-gray-200 px-5 py-3.5 text-sm font-bold focus:border-mint-500 focus:ring-mint-500 shadow-inner dark:bg-deep-900 dark:border-white/10 dark:text-white transition outline-none"
+                       >
+                         <option value="" disabled>Seleccione una deuda activa...</option>
+                         {debtsList.map(d => (
+                            <option key={d.id} value={d.id}>{d.name} - Cuota de {formatCOP(d.installment_amount)}</option>
+                         ))}
+                       </select>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-6">

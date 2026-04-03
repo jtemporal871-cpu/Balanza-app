@@ -12,7 +12,7 @@ export default function Dashboard() {
   const { user } = useAuth()
   const firstName = user?.user_metadata?.display_name?.split(' ')[0] || user?.email?.split('@')[0]
   
-  const [data, setData] = useState({ participants: [], expenses: [], expenseSplits: [], settlements: [], categories: [] })
+  const [data, setData] = useState({ participants: [], expenses: [], expenseSplits: [], settlements: [], categories: [], bankDebts: [] })
   const [loading, setLoading] = useState(true)
   
   const [settlingDebt, setSettlingDebt] = useState(null)
@@ -21,12 +21,13 @@ export default function Dashboard() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const [pRes, eRes, sRes, setRes, cRes] = await Promise.all([
+      const [pRes, eRes, sRes, setRes, cRes, dRes] = await Promise.all([
         supabase.from('participants').select('*'),
         supabase.from('expenses').select('*, participants(name), categories(name, icon, color)'),
         supabase.from('expense_splits').select('*'),
         supabase.from('settlements').select('*'),
-        supabase.from('categories').select('*')
+        supabase.from('categories').select('*'),
+        supabase.from('debts').select('*').eq('status', 'active')
       ])
       
       setData({
@@ -34,7 +35,8 @@ export default function Dashboard() {
          expenses: eRes.data || [],
          expenseSplits: sRes.data || [],
          settlements: setRes.data || [],
-         categories: cRes.data || []
+         categories: cRes.data || [],
+         bankDebts: dRes.data || []
       })
     } catch (err) {
       console.error('Error cargando Dashboard:', err)
@@ -69,6 +71,11 @@ export default function Dashboard() {
   const { debts } = calculateBalances(data.participants, data.expenses, data.expenseSplits, data.settlements)
   const totalDebts = debts.reduce((sum, d) => sum + d.amount, 0)
   const totalParticipants = data.participants.length
+
+  // ================= DEUDAS BANCARIAS/PERSONALES =================
+  const activeBankDebts = data.bankDebts || []
+  const totalBankDebtsAmount = activeBankDebts.reduce((sum, d) => sum + d.remaining_amount, 0)
+  const nextDebtToPay = activeBankDebts.length > 0 ? activeBankDebts.sort((a,b) => b.installment_amount - a.installment_amount)[0] : null
 
   // ================= CATEGORÍAS DEL MES =================
   const catTotals = {}
@@ -257,6 +264,33 @@ export default function Dashboard() {
 
         {/* COLUMNA DERECHA: Últimos gastos */}
         <div className="space-y-8">
+           {/* TARJETA DE DEUDAS EXTERNAS */}
+           <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-rose-100 bg-gradient-to-br from-white to-rose-50 dark:from-deep-900 dark:to-rose-950/20 dark:border-rose-900/30 overflow-hidden relative group">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/10 blur-3xl rounded-full pointer-events-none" />
+              <h2 className="text-xl font-extrabold text-deep-900 dark:text-white mb-6 flex items-center gap-2 relative z-10">
+                <Wallet className="h-6 w-6 text-rose-500" />
+                Mis Deudas Activas
+              </h2>
+              
+              <div className="space-y-4 relative z-10">
+                <div className="bg-white/60 dark:bg-black/20 p-4 rounded-2xl border border-rose-100 dark:border-white/5">
+                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Total Pendiente ({activeBankDebts.length} deudas)</p>
+                  <p className="text-3xl font-black text-rose-600 dark:text-rose-500 tracking-tight">{formatCOP(totalBankDebtsAmount)}</p>
+                </div>
+                
+                {nextDebtToPay && (
+                  <div className="bg-white/60 dark:bg-black/20 p-4 rounded-2xl border border-rose-100 dark:border-white/5">
+                    <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Próxima Cuota Urgente</p>
+                    <p className="text-lg font-black text-deep-900 dark:text-white">{formatCOP(nextDebtToPay.installment_amount)}</p>
+                    <p className="text-sm font-bold text-gray-500 mt-1 truncate">De: {nextDebtToPay.name}</p>
+                  </div>
+                )}
+                {activeBankDebts.length === 0 && (
+                  <p className="text-sm text-gray-500 font-medium text-center py-2">Libre de deudas externas 🎉</p>
+                )}
+              </div>
+           </div>
+
            <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-gray-100 dark:border-white/5">
               <h2 className="text-xl font-extrabold text-deep-900 dark:text-white mb-6">Últimos Gastos</h2>
               
