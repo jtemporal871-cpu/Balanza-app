@@ -16,7 +16,18 @@ export default function Dashboard() {
   
   const [data, setData] = useState({ participants: [], expenses: [], expenseSplits: [], settlements: [], categories: [], bankDebts: [], accounts: [], incomes: [] })
   const [loading, setLoading] = useState(true)
-  const [timeFilter, setTimeFilter] = useState('this_month')
+  const [timeFilter, setTimeFilter] = useState(localStorage.getItem('dashboard_timeFilter') || 'this_month')
+  const [customStart, setCustomStart] = useState(localStorage.getItem('dashboard_customStart') || '')
+  const [customEnd, setCustomEnd] = useState(localStorage.getItem('dashboard_customEnd') || '')
+
+  useEffect(() => {
+    localStorage.setItem('dashboard_timeFilter', timeFilter)
+  }, [timeFilter])
+  
+  useEffect(() => {
+    localStorage.setItem('dashboard_customStart', customStart)
+    localStorage.setItem('dashboard_customEnd', customEnd)
+  }, [customStart, customEnd])
 
   const fetchData = async () => {
     setLoading(true)
@@ -51,27 +62,42 @@ export default function Dashboard() {
 
   useEffect(() => { fetchData() }, [])
 
-  // ================= METRICAS DEL MES =================
-  const currentMonth = new Date().toISOString().slice(0, 7) // 'YYYY-MM'
-  const expensesThisMonth = data.expenses.filter(e => e.date && e.date.startsWith(currentMonth))
-  
-  const totalMes = expensesThisMonth.reduce((sum, e) => sum + Number(e.amount), 0)
-  
-  const payerTotals = {}
-  expensesThisMonth.forEach(e => {
-     payerTotals[e.payer_id] = (payerTotals[e.payer_id] || 0) + Number(e.amount)
-  })
-  
-  let topPayerInfo = { name: 'Ninguno', amount: 0 }
-  const topPayerIds = Object.keys(payerTotals).sort((a, b) => payerTotals[b] - payerTotals[a])
-  if (topPayerIds.length > 0) {
-    const p = data.participants.find(part => part.id === topPayerIds[0])
-    if (p) {
-      topPayerInfo = { name: p.name, amount: payerTotals[topPayerIds[0]] }
+  // ================= METRICAS Y FILTRO GLOBAL =================
+  const isInPeriod = (dateStr) => {
+    if (!dateStr) return false
+    
+    if (timeFilter === 'custom') {
+      if (!customStart || !customEnd) return true
+      return dateStr >= customStart && dateStr <= customEnd
     }
+
+    const d = new Date(dateStr)
+    const now = new Date()
+    const eYear = d.getUTCFullYear()
+    const eMonth = d.getUTCMonth()
+    const nYear = now.getFullYear()
+    const nMonth = now.getMonth()
+
+    if (timeFilter === 'this_month') return eYear === nYear && eMonth === nMonth
+    if (timeFilter === 'last_3_months') {
+      const threeago = new Date()
+      threeago.setMonth(nMonth - 3)
+      return d >= threeago && d <= now
+    }
+    if (timeFilter === 'last_6_months') {
+      const sixago = new Date()
+      sixago.setMonth(nMonth - 6)
+      return d >= sixago && d <= now
+    }
+    if (timeFilter === 'this_year') return eYear === nYear
+    return true
   }
 
-  const totalParticipants = data.participants.length
+  const filteredExpenses = data.expenses.filter(e => isInPeriod(e.date))
+  const filteredIncomes = data.incomes.filter(i => isInPeriod(i.date))
+
+  const totalMes = filteredExpenses.reduce((sum, e) => sum + Number(e.amount), 0)
+  const totalIncomesMes = filteredIncomes.reduce((sum, i) => sum + Number(i.amount), 0)
 
   // ================= DEUDAS BANCARIAS/PERSONALES =================
   const activeBankDebts = data.bankDebts || []
@@ -85,37 +111,7 @@ export default function Dashboard() {
     approxNextDateStr = d.toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' })
   }
 
-  // ================= GASTOS FILTRADOS (NUEVO BLOQUE MIS GASTOS) =================
-  const getFilteredExpenses = () => {
-    const now = new Date()
-    return data.expenses.filter(e => {
-      if (!e.date) return false
-      const eDate = new Date(e.date)
-      // Ajuste de zona horaria simple
-      const eYear = eDate.getUTCFullYear()
-      const eMonth = eDate.getUTCMonth()
-      const nYear = now.getFullYear()
-      const nMonth = now.getMonth()
-
-      if (timeFilter === 'this_month') return eYear === nYear && eMonth === nMonth
-      if (timeFilter === 'last_3_months') {
-        const threeago = new Date()
-        threeago.setMonth(nMonth - 3)
-        return eDate >= threeago && eDate <= now
-      }
-      if (timeFilter === 'last_6_months') {
-        const sixago = new Date()
-        sixago.setMonth(nMonth - 6)
-        return eDate >= sixago && eDate <= now
-      }
-      if (timeFilter === 'this_year') return eYear === nYear
-      return true
-    })
-  }
-
-  const filteredExpenses = getFilteredExpenses()
-  const filteredTotal = filteredExpenses.reduce((sum, e) => sum + Number(e.amount), 0)
-
+  // ================= MIS GASTOS (GRÁFICA) =================
   const filteredCatTotals = {}
   filteredExpenses.forEach(e => {
     const cid = e.category_id || 'uncategorized'
@@ -131,21 +127,21 @@ export default function Dashboard() {
       bgColor: cat ? cat.color : 'bg-gray-400',
       icon: cat ? cat.icon : 'Tag',
       total: filteredCatTotals[cid],
-      percentage: filteredTotal > 0 ? ((filteredCatTotals[cid] / filteredTotal) * 100).toFixed(1) : 0
+      percentage: totalMes > 0 ? ((filteredCatTotals[cid] / totalMes) * 100).toFixed(1) : 0
     }
   }).sort((a,b) => b.total - a.total)
 
   // ================= ÚLTIMOS GASTOS =================
-  const lastExpenses = [...data.expenses].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5)
+  const lastExpenses = [...filteredExpenses].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5)
 
   const totalBalance = data.accounts.reduce((sum, a) => sum + Number(a.balance), 0)
-  const incomesThisMonth = data.incomes.filter(i => i.date && i.date.startsWith(currentMonth))
-  const totalIncomesMes = incomesThisMonth.reduce((sum, i) => sum + Number(i.amount), 0)
+
+  const periodText = timeFilter === 'this_month' ? 'del Mes' : 'del Período';
 
   const metrics = [
     { title: 'Saldo a Favor', value: formatCOP(totalBalance), icon: Wallet, color: 'from-blue-500 to-blue-600', href: '/accounts' },
-    { title: 'Ingresos del Mes', value: formatCOP(totalIncomesMes), icon: ArrowUpCircle, color: 'from-mint-500 to-mint-600', href: '/incomes' },
-    { title: 'Gastos del Mes', value: formatCOP(totalMes), icon: TrendingDown, color: 'from-rose-500 to-rose-600', href: '/expenses' },
+    { title: `Ingresos ${periodText}`, value: formatCOP(totalIncomesMes), icon: ArrowUpCircle, color: 'from-mint-500 to-mint-600', href: '/incomes' },
+    { title: `Gastos ${periodText}`, value: formatCOP(totalMes), icon: TrendingDown, color: 'from-rose-500 to-rose-600', href: '/expenses' },
     { title: 'Deudas Activas', value: formatCOP(totalBankDebtsAmount), icon: Landmark, color: 'from-purple-500 to-purple-600', href: '/debts' }
   ]
 
@@ -160,13 +156,45 @@ export default function Dashboard() {
   return (
     <div className="p-6 lg:p-10 max-w-7xl mx-auto animate-in fade-in zoom-in-95 duration-500">
       
-      <div className="mb-10">
-        <h1 className="text-3xl lg:text-4xl font-extrabold text-deep-950 dark:text-white tracking-tight mb-2">
-           Hola, {firstName} 👋
-        </h1>
-        <p className="text-gray-600 dark:text-gray-400 text-base max-w-3xl">
-           Resumen automático de cuentas y deudas del grupo. Mantén todo equilibrado.
-        </p>
+      <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6 relative z-20">
+        <div>
+          <h1 className="text-3xl lg:text-4xl font-extrabold text-deep-950 dark:text-white tracking-tight mb-2">
+             Hola, {firstName} 👋
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400 text-base max-w-3xl">
+             Resumen automático de cuentas y deudas del grupo. Mantén todo equilibrado.
+          </p>
+        </div>
+        
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap gap-2 bg-white/60 dark:bg-black/20 p-1.5 rounded-xl border border-gray-100 dark:border-white/5 backdrop-blur-md shadow-sm">
+            {[
+              { id: 'this_month', label: 'Este mes' },
+              { id: 'last_3_months', label: 'Últimos 3 meses' },
+              { id: 'last_6_months', label: 'Últimos 6 meses' },
+              { id: 'this_year', label: 'Este año' },
+              { id: 'custom', label: 'Personalizado' }
+            ].map(f => (
+              <button
+                key={f.id}
+                onClick={() => setTimeFilter(f.id)}
+                className={`px-3 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-all ${timeFilter === f.id ? 'bg-mint-500 text-white shadow-sm dark:bg-mint-600' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white'}`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+          {timeFilter === 'custom' && (
+            <div className="flex gap-2 animate-in fade-in slide-in-from-top-1">
+               <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)}
+                 className="flex-1 rounded-xl border border-gray-200 px-3 py-2 text-xs font-bold focus:border-mint-500 focus:ring-mint-500 shadow-inner dark:bg-deep-900 dark:border-white/10 dark:text-white outline-none"
+               />
+               <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)}
+                 className="flex-1 rounded-xl border border-gray-200 px-3 py-2 text-xs font-bold focus:border-mint-500 focus:ring-mint-500 shadow-inner dark:bg-deep-900 dark:border-white/10 dark:text-white outline-none"
+               />
+            </div>
+          )}
+        </div>
       </div>
 
       {/* METRICS GRID */}
@@ -202,31 +230,15 @@ export default function Dashboard() {
           
           {/* BLOQUE MIS GASTOS */}
           <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-gray-100 dark:border-white/5 relative overflow-hidden">
-             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+             <div className="flex items-center justify-between mb-8">
                <h2 className="text-xl sm:text-2xl font-extrabold text-deep-900 dark:text-white flex items-center gap-3">
                  <TrendingDown className="h-6 w-6 text-mint-500" /> Mis Gastos
                </h2>
-               <div className="flex flex-wrap gap-2 bg-gray-50 dark:bg-black/20 p-1.5 rounded-xl border border-gray-100 dark:border-white/5">
-                 {[
-                   { id: 'this_month', label: 'Este mes' },
-                   { id: 'last_3_months', label: 'Últimos 3 meses' },
-                   { id: 'last_6_months', label: 'Últimos 6 meses' },
-                   { id: 'this_year', label: 'Este año' }
-                 ].map(f => (
-                   <button
-                     key={f.id}
-                     onClick={() => setTimeFilter(f.id)}
-                     className={`px-3 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-all ${timeFilter === f.id ? 'bg-white text-mint-600 shadow-sm border border-gray-200 dark:bg-deep-800 dark:text-mint-400 dark:border-white/10' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white'}`}
-                   >
-                     {f.label}
-                   </button>
-                 ))}
-               </div>
              </div>
 
              <div className="bg-gray-50 dark:bg-deep-950 p-6 rounded-2xl border border-gray-100 dark:border-white/5 mb-8">
                <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Total Gastado</p>
-               <p className="text-3xl sm:text-4xl font-black text-rose-500 tracking-tight">{formatCOP(filteredTotal)}</p>
+               <p className="text-3xl sm:text-4xl font-black text-rose-500 tracking-tight">{formatCOP(totalMes)}</p>
              </div>
 
              {filteredCatChart.length === 0 ? (
@@ -270,7 +282,7 @@ export default function Dashboard() {
           <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-gray-100 dark:border-white/5 relative overflow-hidden">
              <div className="flex items-center justify-between mb-8">
                <h3 className="text-xl font-extrabold text-deep-900 dark:text-white flex items-center gap-2">
-                 <Activity className="h-6 w-6 text-mint-500" /> Flujo del Mes Actual
+                 <Activity className="h-6 w-6 text-mint-500" /> Flujo {periodText}
                </h3>
              </div>
              
@@ -296,7 +308,7 @@ export default function Dashboard() {
                </div>
 
                <div className="pt-6 border-t border-gray-100 dark:border-white/5 flex justify-between items-center">
-                 <span className="text-sm font-bold uppercase tracking-widest text-gray-500">Balance Neto Mensual</span>
+                 <span className="text-sm font-bold uppercase tracking-widest text-gray-500">Balance Neto</span>
                  <span className={`text-2xl font-black ${totalIncomesMes - totalMes >= 0 ? 'text-mint-600' : 'text-rose-500'}`}>
                    {totalIncomesMes - totalMes >= 0 ? '+' : ''}{formatCOP(totalIncomesMes - totalMes)}
                  </span>
