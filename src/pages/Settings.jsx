@@ -2,14 +2,13 @@ import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { supabase } from '../services/supabaseClient'
-import { Settings as SettingsIcon, User, Moon, Sun, DollarSign, Save, AlertCircle, CheckCircle, Mail, UserPlus, Send } from 'lucide-react'
+import { Settings as SettingsIcon, User, Moon, Sun, Save, AlertCircle, CheckCircle, Mail, UserPlus, Send } from 'lucide-react'
 
 export default function Settings() {
   const { user } = useAuth()
   const { isDark, toggleTheme } = useTheme()
   const [name, setName] = useState(user?.user_metadata?.display_name || '')
   const [email, setEmail] = useState(user?.email || '')
-  const [currency, setCurrency] = useState(localStorage.getItem('balanza_currency') || 'COP')
   const [inviteEmail, setInviteEmail] = useState('')
   
   const [loading, setLoading] = useState(false)
@@ -37,14 +36,7 @@ export default function Settings() {
       const { error } = await supabase.auth.updateUser(updates)
       if (error) throw error
       
-      localStorage.setItem('balanza_currency', currency)
-      
       setMessage({ type: 'success', text: 'Preferencias actualizadas correctamente.' })
-      
-      // Reload UI to apply currency changes across cached states
-      setTimeout(() => {
-        window.location.reload()
-      }, 1500)
 
     } catch (err) {
       setMessage({ type: 'error', text: err.message || 'Error actualizando perfil.' })
@@ -165,26 +157,7 @@ export default function Settings() {
                 <p className="text-xs text-rose-500 font-semibold mt-2 ml-1">Cambiar el correo requerirá reingresar a la cuenta.</p>
               </div>
 
-              <div className="border-t border-gray-100 dark:border-white/5 pt-6 mt-8">
-                 <label className="block text-xs font-extrabold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-2">Moneda Principal</label>
-                 <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <DollarSign className="h-5 w-5 text-gray-400" />
-                    </div>
-                    <select
-                      className="w-full rounded-2xl border border-gray-200 pl-12 pr-4 py-3.5 text-sm font-bold focus:border-mint-500 focus:ring-mint-500 shadow-inner dark:bg-deep-950 dark:border-white/10 dark:text-white outline-none transition"
-                      value={currency}
-                      onChange={(e) => setCurrency(e.target.value)}
-                    >
-                      <option value="COP">Peso Colombiano (COP)</option>
-                      <option value="USD">Dólar Estadounidense (USD)</option>
-                      <option value="EUR">Euro (EUR)</option>
-                      <option value="MXN">Peso Mexicano (MXN)</option>
-                    </select>
-                 </div>
-              </div>
-
-              <div className="flex justify-end pt-6 mt-8">
+              <div className="flex justify-end pt-6 mt-8 border-t border-gray-100 dark:border-white/5">
                 <button type="submit" disabled={loading} className="w-full sm:w-auto flex justify-center items-center gap-2 px-8 py-4 text-sm font-bold text-white bg-gradient-to-r from-mint-500 to-mint-600 hover:from-mint-600 hover:to-mint-700 rounded-2xl disabled:opacity-50 shadow-lg shadow-mint-500/30 transition-all active:scale-95">
                   <Save className="h-5 w-5" />
                   {loading ? 'Guardando...' : 'Guardar Cambios'}
