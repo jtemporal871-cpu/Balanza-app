@@ -79,6 +79,13 @@ export default function Dashboard() {
   const activeBankDebts = data.bankDebts || []
   const totalBankDebtsAmount = activeBankDebts.reduce((sum, d) => sum + d.remaining_amount, 0)
   const nextDebtToPay = activeBankDebts.length > 0 ? activeBankDebts.sort((a,b) => b.installment_amount - a.installment_amount)[0] : null
+  
+  let approxNextDateStr = ''
+  if (nextDebtToPay) {
+    const d = new Date(nextDebtToPay.start_date)
+    d.setMonth(d.getMonth() + nextDebtToPay.paid_installments + 1)
+    approxNextDateStr = d.toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' })
+  }
 
   // ================= CATEGORÍAS DEL MES =================
   const catTotals = {}
@@ -351,6 +358,9 @@ export default function Dashboard() {
                     <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Próxima Cuota Urgente</p>
                     <p className="text-lg font-black text-deep-900 dark:text-white">{formatCOP(nextDebtToPay.installment_amount)}</p>
                     <p className="text-sm font-bold text-gray-500 mt-1 truncate">De: {nextDebtToPay.name}</p>
+                    <p className="text-xs font-bold text-rose-500 mt-1.5 flex items-center gap-1.5">
+                      <Calendar className="h-3.5 w-3.5" /> Vence: {approxNextDateStr}
+                    </p>
                   </div>
                 )}
                 {activeBankDebts.length === 0 && (
