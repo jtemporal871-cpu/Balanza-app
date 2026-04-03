@@ -8,28 +8,33 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Check active sessions and sets the user
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null)
-      if (session?.user) {
-        const { data } = await supabase.from('users').select('currency').eq('id', session.user.id).single()
-        if (data?.currency) localStorage.setItem('balanza_currency', data.currency)
-      }
       setLoading(false)
+      
+      // Fetch silencioso sin bloquear
+      if (session?.user) {
+        supabase.from('users').select('currency').eq('id', session.user.id).single()
+          .then(({ data }) => {
+            if (data?.currency && ['COP', 'USD', 'EUR', 'MXN'].includes(data.currency)) {
+              localStorage.setItem('balanza_currency', data.currency)
+            }
+          })
+      }
     })
 
-    // Listen for changes on auth state (sign in, sign out, etc.)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null)
+      setLoading(false)
       
       if (session?.user && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
-        const { data } = await supabase.from('users').select('currency').eq('id', session.user.id).single()
-        if (data?.currency) localStorage.setItem('balanza_currency', data.currency)
-      } else if (!session?.user) {
-        localStorage.removeItem('balanza_currency')
+        supabase.from('users').select('currency').eq('id', session.user.id).single()
+          .then(({ data }) => {
+            if (data?.currency && ['COP', 'USD', 'EUR', 'MXN'].includes(data.currency)) {
+              localStorage.setItem('balanza_currency', data.currency)
+            }
+          })
       }
-      
-      setLoading(false)
       
       if (event === 'PASSWORD_RECOVERY') {
          window.location.href = '/update-password'
