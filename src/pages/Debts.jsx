@@ -13,6 +13,9 @@ export default function Debts() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [editingId, setEditingId] = useState(null)
+  
+  const [capitalFormDebt, setCapitalFormDebt] = useState(null)
+  const [capitalAmount, setCapitalAmount] = useState('')
 
   const [form, setForm] = useState({
     name: '',
@@ -138,6 +141,47 @@ export default function Debts() {
     }
   }
 
+  const payToCapital = async (e) => {
+    e.preventDefault()
+    if (!capitalFormDebt || !capitalAmount || Number(capitalAmount) <= 0) return
+    const debt = capitalFormDebt
+    try {
+      setSubmitting(true)
+      const abono = Number(capitalAmount)
+      const newRemaining = Math.max(0, debt.remaining_amount - abono)
+      
+      const n = debt.total_installments - debt.paid_installments
+      const rate = Number(debt.interest_rate) / 100
+      let newInstallment = 0
+      
+      const isPaidOff = newRemaining <= 0
+
+      if (!isPaidOff && n > 0) {
+         if (rate === 0) {
+            newInstallment = newRemaining / n
+         } else {
+            const factor = Math.pow(1 + rate, n)
+            newInstallment = newRemaining * ((rate * factor) / (factor - 1))
+         }
+      }
+
+      const { error } = await supabase.from('debts').update({
+        remaining_amount: newRemaining,
+        installment_amount: newInstallment,
+        status: isPaidOff ? 'paid' : 'active'
+      }).eq('id', debt.id)
+
+      if (error) throw error
+      setCapitalFormDebt(null)
+      setCapitalAmount('')
+      fetchDebts()
+    } catch(err) {
+      alert('Error registrando abono a capital')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   const deleteDebt = async (id) => {
     if (!confirm('¿Seguro que deseas eliminar esta deuda permanentemente? Las vinculaciones de gastos a ella perderán la referencia.')) return
     try {
@@ -239,9 +283,12 @@ export default function Debts() {
                 </div>
 
                 {!isPaid && (
-                  <div className="border-t border-gray-100 dark:border-white/5 pt-5 flex justify-end">
-                    <button onClick={() => markInstallmentPaid(debt)} className="flex items-center gap-2 px-6 py-2.5 bg-mint-50 text-mint-700 hover:bg-mint-100 dark:bg-mint-500/10 dark:text-mint-400 dark:hover:bg-mint-500/20 font-bold rounded-xl transition-colors text-sm">
-                      <CheckCircle className="h-4 w-4" /> Abonar 1 Cuota Directamente
+                  <div className="border-t border-gray-100 dark:border-white/5 pt-5 flex flex-col sm:flex-row justify-end gap-3">
+                    <button onClick={() => setCapitalFormDebt(debt)} className="flex items-center justify-center gap-2 px-6 py-2.5 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-400 dark:hover:bg-blue-500/20 font-bold rounded-xl transition-colors text-sm shadow-sm">
+                      <TrendingDown className="h-4 w-4" /> Abonar a Capital
+                    </button>
+                    <button onClick={() => markInstallmentPaid(debt)} className="flex items-center justify-center gap-2 px-6 py-2.5 bg-mint-50 text-mint-700 hover:bg-mint-100 dark:bg-mint-500/10 dark:text-mint-400 dark:hover:bg-mint-500/20 font-bold rounded-xl transition-colors text-sm shadow-sm">
+                      <CheckCircle className="h-4 w-4" /> Pagar Cuota
                     </button>
                   </div>
                 )}
@@ -250,6 +297,33 @@ export default function Debts() {
           })
         )}
       </div>
+
+      {/* MODAL ABONO A CAPITAL */}
+      {capitalFormDebt && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-deep-950/80 backdrop-blur-md animate-in fade-in duration-300">
+           <div className="w-full max-w-sm bg-white dark:bg-deep-900 rounded-[2rem] shadow-2xl p-8 border border-white/10 animate-in zoom-in-95 duration-300">
+             <div className="flex justify-center mb-6">
+                <div className="h-16 w-16 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full flex items-center justify-center">
+                  <TrendingDown className="h-8 w-8" />
+                </div>
+             </div>
+             <h3 className="text-2xl font-extrabold text-center text-deep-900 dark:text-white mb-2 tracking-tight">Abonar a Capital</h3>
+             <p className="text-center text-gray-500 dark:text-gray-400 text-sm mb-6 font-medium">Deuda: {capitalFormDebt.name}</p>
+
+             <form id="capital-form" onSubmit={payToCapital}>
+               <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Monto abonado (COP)</label>
+               <input type="text" inputMode="numeric" required value={capitalAmount ? new Intl.NumberFormat('es-CO').format(capitalAmount) : ''} onChange={e => setCapitalAmount(e.target.value.replace(/\D/g, ''))}
+                 className="w-full rounded-2xl border border-gray-200 px-5 py-3.5 text-lg font-bold focus:border-blue-500 focus:ring-blue-500 shadow-inner dark:bg-deep-950 dark:border-white/10 dark:text-white transition outline-none text-center mb-6"
+                 placeholder="0" />
+
+               <div className="flex gap-3">
+                 <button type="button" onClick={() => { setCapitalFormDebt(null); setCapitalAmount('') }} disabled={submitting} className="flex-1 py-3.5 px-4 font-bold text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl transition-colors dark:bg-deep-800 dark:border-white/10 dark:text-gray-300 dark:hover:bg-deep-950">Cancelar</button>
+                 <button type="submit" disabled={submitting} className="flex-1 py-3.5 px-4 font-bold text-white bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-xl shadow-lg shadow-blue-500/30 transition-all">Abonar</button>
+               </div>
+             </form>
+           </div>
+        </div>, document.body
+      )}
 
       {/* FORM MODAL EN PORTAL */}
       {showForm && createPortal(

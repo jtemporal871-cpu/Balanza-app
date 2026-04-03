@@ -34,6 +34,7 @@ export default function Expenses() {
   const [splitType, setSplitType] = useState('equal') 
   const [isDebtPayment, setIsDebtPayment] = useState(false)
   const [selectedDebtId, setSelectedDebtId] = useState('')
+  const [debtPaymentType, setDebtPaymentType] = useState('installments')
   
   const [splits, setSplits] = useState([])
 
@@ -135,6 +136,7 @@ export default function Expenses() {
       setSplitType('equal')
       setIsDebtPayment(false)
       setSelectedDebtId('')
+      setDebtPaymentType('installments')
       
       setSplits(participants.map(p => ({
         participant_id: p.id,
@@ -255,19 +257,43 @@ export default function Expenses() {
         const { error: insError } = await supabase.from('expense_splits').insert(preparedSplits.map(s => ({ ...s, expense_id: newExpId })))
         if (insError) throw insError
         
-        // Auto-incrementar deuda solo al crear si fue vinculada
+        // Lógica dual de pago de deudas desde Gastos
         if (isDebtPayment && selectedDebtId) {
           const debt = debtsList.find(d => d.id === selectedDebtId)
-          if (debt && debt.paid_installments < debt.total_installments) {
-            const newPaid = debt.paid_installments + 1
-            const isPaidOff = newPaid === debt.total_installments
-            const newRemaining = isPaidOff ? 0 : Math.max(0, debt.remaining_amount - debt.installment_amount)
-            await supabase.from('debts').update({
-              paid_installments: newPaid,
-              remaining_amount: newRemaining,
-              status: isPaidOff ? 'paid' : 'active'
-            }).eq('id', debt.id)
-            
+          if (debt) {
+            if (debtPaymentType === 'installments' && debt.paid_installments < debt.total_installments) {
+                const newPaid = debt.paid_installments + 1
+                const isPaidOff = newPaid >= debt.total_installments
+                const newRemaining = isPaidOff ? 0 : Math.max(0, debt.remaining_amount - debt.installment_amount)
+                await supabase.from('debts').update({
+                  paid_installments: newPaid,
+                  remaining_amount: newRemaining,
+                  status: isPaidOff ? 'paid' : 'active'
+                }).eq('id', debt.id)
+            } else if (debtPaymentType === 'capital') {
+                const abono = totalAmount
+                const newRemaining = Math.max(0, debt.remaining_amount - abono)
+                const isPaidOff = newRemaining <= 0
+                
+                const n = debt.total_installments - debt.paid_installments
+                const rate = Number(debt.interest_rate) / 100
+                
+                let newInstallment = 0
+                if (!isPaidOff && n > 0) {
+                   if (rate === 0) {
+                      newInstallment = newRemaining / n
+                   } else {
+                      const factor = Math.pow(1 + rate, n)
+                      newInstallment = newRemaining * ((rate * factor) / (factor - 1))
+                   }
+                }
+
+                await supabase.from('debts').update({
+                  remaining_amount: newRemaining,
+                  installment_amount: newInstallment,
+                  status: isPaidOff ? 'paid' : 'active'
+                }).eq('id', debt.id)
+            }
             // Recargar catálogo silenciosamente
             supabase.from('debts').select('*').eq('status', 'active').then(r => r.data && setDebtsList(r.data))
           }
@@ -479,7 +505,11 @@ export default function Expenses() {
                   </label>
                   
                   {isDebtPayment && (
-                    <div className="animate-in fade-in slide-in-from-top-2">
+                    <div className="animate-in fade-in slide-in-from-top-2 space-y-4 pt-1">
+                       <div className="flex gap-2 sm:gap-3 bg-gray-100 p-1.5 rounded-xl dark:bg-black/20 dark:border dark:border-white/5">
+                         <button type="button" onClick={() => setDebtPaymentType('installments')} className={`flex-1 py-2 text-[11px] sm:text-xs font-bold rounded-lg transition-all ${debtPaymentType === 'installments' ? 'bg-white text-deep-900 shadow-sm dark:bg-deep-800 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}>Pago de Cuota</button>
+                         <button type="button" onClick={() => setDebtPaymentType('capital')} className={`flex-1 py-2 text-[11px] sm:text-xs font-bold rounded-xl transition-all ${debtPaymentType === 'capital' ? 'bg-white text-deep-900 shadow-sm dark:bg-deep-800 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}>Abono a Capital</button>
+                       </div>
                        <select 
                          required 
                          value={selectedDebtId} 
@@ -488,7 +518,7 @@ export default function Expenses() {
                        >
                          <option value="" disabled>Seleccione una deuda activa...</option>
                          {debtsList.map(d => (
-                            <option key={d.id} value={d.id}>{d.name} - Cuota de {formatCOP(d.installment_amount)}</option>
+                            <option key={d.id} value={d.id}>{d.name} - {debtPaymentType === 'installments' ? `Cuota de ${formatCOP(d.installment_amount)}` : `Pendiente ${formatCOP(d.remaining_amount)}`}</option>
                          ))}
                        </select>
                     </div>
