@@ -183,60 +183,121 @@ export default function Dashboard() {
         {/* COLUMNA IZQUIERDA: Balances y Categorias */}
         <div className="lg:col-span-2 space-y-8">
           
-          {/* DEUDAS / BALANCES */}
-          <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-gray-100 dark:border-white/5 relative overflow-hidden">
-            <h2 className="text-xl font-extrabold text-deep-900 dark:text-white mb-6 flex items-center gap-3">
-              <ArrowRight className="h-6 w-6 text-mint-500" />
-              Liquidación de Deudas
-            </h2>
-            
-            {debts.length === 0 ? (
-              <div className="text-center py-10 bg-mint-50 dark:bg-mint-500/5 rounded-2xl border border-mint-100 dark:border-white/5">
-                <div className="h-14 w-14 rounded-full bg-mint-100 text-mint-600 flex items-center justify-center mx-auto mb-3 dark:bg-mint-900 dark:text-mint-300">
-                  <Check className="h-7 w-7 border-4 border-mint-100 dark:border-mint-900 rounded-full" />
-                </div>
-                <h3 className="text-lg font-bold text-deep-900 dark:text-white">¡Todos están a paz y salvo!</h3>
-                <p className="text-sm text-gray-500 font-medium">No existen deudas pendientes en el grupo.</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {debts.map((debt, idx) => (
-                  <div key={debt.id || idx} className="flex flex-col sm:flex-row items-center justify-between p-5 bg-white shadow-sm dark:bg-deep-900/50 rounded-2xl border border-gray-100 dark:border-white/5 group hover:border-mint-300 transition-colors">
-                    <div className="flex items-center gap-4 w-full sm:w-auto mb-4 sm:mb-0">
-                      <div className="h-10 w-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center font-bold text-sm dark:bg-rose-900/30 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
-                        {debt.fromName.charAt(0)}
-                      </div>
-                      <div className="flex flex-col items-center sm:items-start flex-1 sm:flex-none">
-                        <span className="text-sm font-bold text-gray-900 dark:text-white">{debt.fromName}</span>
-                        <span className="text-xs font-semibold text-gray-400">Debe pagar</span>
-                      </div>
-                      <div className="px-3 bg-gray-50 rounded-full border border-gray-100 dark:bg-white/5 dark:border-white/5">
-                        <ArrowRight className="h-4 w-4 text-gray-400" />
-                      </div>
-                      <div className="h-10 w-10 rounded-full bg-mint-100 text-mint-600 flex items-center justify-center font-bold text-sm dark:bg-mint-900/30 dark:text-mint-400 border border-mint-200 dark:border-mint-800">
-                        {debt.toName.charAt(0)}
-                      </div>
-                      <div className="flex flex-col flex-1 sm:flex-none">
-                        <span className="text-sm font-bold text-gray-900 dark:text-white">{debt.toName}</span>
-                        <span className="text-xs font-semibold text-gray-400">Recibe</span>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center w-full sm:w-auto justify-between sm:justify-end gap-5 pl-14 sm:pl-0">
-                      <div className="text-right">
-                        <p className="text-xl font-black text-rose-500 tracking-tight">{formatCOP(debt.amount)}</p>
-                      </div>
-                      <button 
-                        onClick={() => setSettlingDebt(debt)}
-                        className="px-5 py-2.5 bg-deep-900 hover:bg-deep-800 text-white dark:bg-white dark:text-deep-900 dark:hover:bg-gray-100 text-sm font-bold rounded-xl shadow-lg transition-all active:scale-95"
-                      >
-                        Liquidar
-                      </button>
-                    </div>
+          {/* BLOQUE DE BALANCE GENERAL */}
+          <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-gray-100 dark:border-white/5 relative overflow-hidden space-y-10">
+            <div>
+              <h2 className="text-2xl font-extrabold text-deep-900 dark:text-white mb-6 flex items-center gap-3">
+                <ArrowRight className="h-7 w-7 text-mint-500" />
+                Balance General
+              </h2>
+
+              <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-4">Balance entre participantes</h3>
+              {debts.length === 0 ? (
+                <div className="text-center py-8 bg-mint-50 dark:bg-mint-500/5 rounded-2xl border border-mint-100 dark:border-white/5">
+                  <div className="h-14 w-14 rounded-full bg-mint-100 text-mint-600 flex items-center justify-center mx-auto mb-3 dark:bg-mint-900 dark:text-mint-300">
+                    <Check className="h-7 w-7 border-4 border-mint-100 dark:border-mint-900 rounded-full" />
                   </div>
-                ))}
+                  <h3 className="text-lg font-bold text-deep-900 dark:text-white">¡Todos están a paz y salvo!</h3>
+                  <p className="text-sm text-gray-500 font-medium">No existen deudas cruzadas entre el grupo.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {debts.map((debt, idx) => (
+                    <div key={debt.id || idx} className="flex flex-col sm:flex-row items-center justify-between p-5 bg-white shadow-sm dark:bg-deep-900/50 rounded-2xl border border-gray-100 dark:border-white/5 group hover:border-mint-300 transition-colors">
+                      <div className="flex items-center gap-4 w-full sm:w-auto mb-4 sm:mb-0">
+                        <div className="h-10 w-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center font-bold text-sm dark:bg-rose-900/30 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
+                          {debt.fromName.charAt(0)}
+                        </div>
+                        <div className="flex flex-col items-center sm:items-start flex-1 sm:flex-none">
+                          <span className="text-sm font-bold text-gray-900 dark:text-white">{debt.fromName}</span>
+                          <span className="text-xs font-semibold text-gray-400">Debe pagar</span>
+                        </div>
+                        <div className="px-3 bg-gray-50 rounded-full border border-gray-100 dark:bg-white/5 dark:border-white/5">
+                          <ArrowRight className="h-4 w-4 text-gray-400" />
+                        </div>
+                        <div className="h-10 w-10 rounded-full bg-mint-100 text-mint-600 flex items-center justify-center font-bold text-sm dark:bg-mint-900/30 dark:text-mint-400 border border-mint-200 dark:border-mint-800">
+                          {debt.toName.charAt(0)}
+                        </div>
+                        <div className="flex flex-col flex-1 sm:flex-none">
+                          <span className="text-sm font-bold text-gray-900 dark:text-white">{debt.toName}</span>
+                          <span className="text-xs font-semibold text-gray-400">Recibe</span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center w-full sm:w-auto justify-between sm:justify-end gap-5 pl-14 sm:pl-0">
+                        <div className="text-right">
+                          <p className="text-xl font-black text-rose-500 tracking-tight">{formatCOP(debt.amount)}</p>
+                        </div>
+                        <button 
+                          onClick={() => setSettlingDebt(debt)}
+                          className="px-5 py-2.5 bg-deep-900 hover:bg-deep-800 text-white dark:bg-white dark:text-deep-900 dark:hover:bg-gray-100 text-sm font-bold rounded-xl shadow-lg transition-all active:scale-95"
+                        >
+                          Liquidar
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-gray-100 dark:border-white/5 pt-10">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest">Mis Deudas Bancarias</h3>
+                <button onClick={() => navigate('/debts')} className="text-xs font-bold text-mint-600 hover:text-mint-700 bg-mint-50 hover:bg-mint-100 dark:bg-mint-500/10 dark:text-mint-400 dark:hover:bg-mint-500/20 px-4 py-2 rounded-full transition-colors flex items-center gap-1 shadow-sm">
+                  Ver todas <ArrowRight className="h-4 w-4" />
+                </button>
               </div>
-            )}
+              
+              {activeBankDebts.length === 0 ? (
+                <div className="text-center py-6 bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/5">
+                  <p className="text-sm font-medium text-gray-500">Sin deudas activas 🎉</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {activeBankDebts.map(debt => {
+                    const progress = Math.min(100, Math.max(0, (debt.paid_installments / debt.total_installments) * 100))
+                    // Calculo de fecha aproximada sumando meses pagados + 1 al startDate original
+                    const date = new Date(debt.start_date)
+                    date.setMonth(date.getMonth() + debt.paid_installments + 1)
+                    const approxDate = date.toLocaleDateString('es-CO', { year: 'numeric', month: 'short' })
+
+                    return (
+                      <div onClick={() => navigate('/debts')} key={debt.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-white shadow-sm dark:bg-deep-900/50 rounded-2xl border border-gray-100 dark:border-white/5 group hover:border-mint-300 transition-colors gap-6 sm:gap-4 cursor-pointer">
+                         <div className="flex-1 w-full">
+                            <h4 className="text-base font-black text-deep-900 dark:text-white truncate flex items-center gap-2">
+                               <Wallet className="h-5 w-5 text-mint-500" /> {debt.name} 
+                               <span className="bg-mint-500/10 text-mint-600 dark:bg-mint-400/20 dark:text-mint-400 text-[10px] uppercase px-2 py-0.5 rounded-full font-bold ml-2 border border-mint-200 dark:border-mint-800">
+                                 {progress.toFixed(0)}%
+                               </span>
+                            </h4>
+                            <p className="text-sm text-gray-500 mt-1 font-medium flex items-center gap-2">
+                               <span>Cuota: <b>{formatCOP(debt.installment_amount)}</b></span>
+                               <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600"></span>
+                               <span><Calendar className="h-3 w-3 inline mr-1" />{approxDate}</span>
+                            </p>
+                         </div>
+                         
+                         <div className="flex-1 w-full sm:max-w-[200px] shrink-0">
+                           <div className="flex justify-between text-[11px] font-bold text-gray-500 mb-2 uppercase tracking-wide">
+                             <span>Progreso</span>
+                             <span>{debt.paid_installments} de {debt.total_installments}</span>
+                           </div>
+                           <div className="w-full bg-gray-100 dark:bg-white/5 rounded-full h-2.5 overflow-hidden shadow-inner">
+                             <div className="bg-gradient-to-r from-mint-400 to-mint-500 h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${progress}%` }} />
+                           </div>
+                         </div>
+                         
+                         <div className="text-left sm:text-right w-full sm:w-auto shrink-0 border-t sm:border-t-0 border-gray-100 dark:border-white/5 pt-4 sm:pt-0 mt-2 sm:mt-0">
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Saldo Pendiente</p>
+                            <p className="text-lg font-black text-rose-500">{formatCOP(debt.remaining_amount)}</p>
+                         </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* GRÁFICA DE CATEGORÍAS */}
