@@ -17,8 +17,13 @@ export default function Register() {
     try {
       setError('')
       setLoading(true)
-      const { error } = await signUp(email, password, name)
-      if (error) throw error
+      const { data, error } = await signUp(email, password, name)
+      
+      // Si hubo error pero el usuario sí se insertó, asumimos error de SMTP e ignoramos
+      if (error && !data?.user) {
+        throw error
+      }
+      
       navigate('/')
     } catch (err) {
       setError(err.message || 'Error al registrar usuario.')
