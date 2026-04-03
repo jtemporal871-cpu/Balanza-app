@@ -468,7 +468,7 @@ export default function Expenses() {
             onChange={(e) => setFilterCategory(e.target.value)}
           >
             <option value="all">Todas las categorías</option>
-            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            {categories.filter(c => c.type === 'gasto').map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
       </div>
@@ -627,7 +627,7 @@ export default function Expenses() {
                       className="w-full rounded-2xl border border-gray-200 px-5 py-3.5 text-sm font-medium focus:border-mint-500 focus:ring-mint-500 shadow-inner dark:bg-deep-950 dark:border-white/10 dark:text-white transition outline-none"
                     >
                       <option value="" disabled={!isDebtPayment}>Seleccione...</option>
-                      {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      {categories.filter(c => c.type === 'gasto').map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                   </div>
                   <div className="col-span-2 sm:col-span-1">

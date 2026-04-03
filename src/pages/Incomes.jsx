@@ -2,21 +2,19 @@ import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase } from '../services/supabaseClient'
 import { useAuth } from '../context/AuthContext'
-import { ArrowUpCircle, Plus, X, Calendar, Wallet, AlertCircle, Edit2, Trash2, Tag } from 'lucide-react'
+import { ArrowUpCircle, Plus, X, Calendar, Wallet, AlertCircle, Edit2, Trash2, Tag, ShoppingCart, Utensils, Car, Home, Coffee, Tv, Heart, Zap, Briefcase, Laptop, RefreshCw, ShoppingBag } from 'lucide-react'
 import { formatCOP } from '../utils/format'
 
-const INCOME_CATEGORIES = [
-  { id: 'salario', label: 'Salario' },
-  { id: 'freelance', label: 'Freelance / Proyecto' },
-  { id: 'arriendo', label: 'Arrendamientos' },
-  { id: 'transferencia', label: 'Transferencia externa' },
-  { id: 'otro', label: 'Otros Ingresos' }
-]
+const ICON_OPTIONS = {
+  ShoppingCart, Utensils, Car, Home, Coffee, Tv, Heart, Zap, Tag,
+  Briefcase, Calendar, Laptop, RefreshCw, ShoppingBag, Plus
+}
 
 export default function Incomes() {
   const { user } = useAuth()
   const [incomes, setIncomes] = useState([])
   const [accounts, setAccounts] = useState([])
+  const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   
@@ -31,7 +29,7 @@ export default function Incomes() {
   const [form, setForm] = useState({
     amount: '',
     description: '',
-    category: 'salario',
+    category_id: '',
     date: new Date().toISOString().slice(0, 10),
     account_id: ''
   })
@@ -50,16 +48,20 @@ export default function Incomes() {
 
   const fetchInitialData = async () => {
     try {
-      const { data, error } = await supabase.from('accounts').select('*').eq('is_active', true)
-      if (error) throw error
-      setAccounts(data || [])
+      const { data: accountsData, error: accountsErr } = await supabase.from('accounts').select('*').eq('is_active', true)
+      if (accountsErr) throw accountsErr
+      setAccounts(accountsData || [])
+
+      const { data: catData, error: catErr } = await supabase.from('categories').select('*').eq('type', 'ingreso').order('name')
+      if (catErr) throw catErr
+      setCategories(catData || [])
     } catch (err) {}
   }
 
   const fetchIncomes = async () => {
     setLoading(true)
     try {
-      let query = supabase.from('incomes').select('*, accounts(name, icon, color)').order('date', { ascending: false }).order('created_at', { ascending: false })
+      let query = supabase.from('incomes').select('*, accounts(name, icon, color), categories(name, icon, color)').order('date', { ascending: false }).order('created_at', { ascending: false })
       
       const now = new Date()
       let startDate, endDate
@@ -109,7 +111,7 @@ export default function Incomes() {
       setForm({
         amount: income.amount.toString(),
         description: income.description,
-        category: income.category,
+        category_id: income.category_id,
         date: income.date,
         account_id: income.account_id
       })
@@ -119,7 +121,7 @@ export default function Incomes() {
       setForm({
         amount: '',
         description: '',
-        category: 'salario',
+        category_id: categories.length > 0 ? categories[0].id : '',
         date: new Date().toISOString().slice(0, 10),
         account_id: accounts.length > 0 ? accounts[0].id : ''
       })
@@ -140,7 +142,7 @@ export default function Incomes() {
         account_id: form.account_id,
         amount: numAmount,
         description: form.description.trim(),
-        category: form.category,
+        category_id: form.category_id,
         date: form.date
       }
 
@@ -288,7 +290,7 @@ export default function Incomes() {
                         <Calendar className="h-3 w-3" /> {new Date(inc.date).toLocaleDateString('es-CO')}
                       </span>
                       <span className="flex items-center gap-1 bg-gray-100 dark:bg-white/5 px-2.5 py-1 rounded-md capitalize">
-                        <Tag className="h-3 w-3" /> {inc.category}
+                        <Tag className="h-3 w-3" /> {inc.categories?.name || 'Varios'}
                       </span>
                       <span className="flex items-center gap-1 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2.5 py-1 rounded-md">
                         <Wallet className="h-3 w-3" /> {inc.accounts?.name || 'Cuenta eliminada'}
@@ -351,9 +353,10 @@ export default function Incomes() {
                  <div className="grid grid-cols-2 gap-5">
                    <div className="col-span-1">
                      <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Categoría</label>
-                     <select required value={form.category} onChange={e => setForm({...form, category: e.target.value})}
+                     <select required value={form.category_id} onChange={e => setForm({...form, category_id: e.target.value})}
                        className="w-full rounded-2xl border border-gray-200 px-5 py-3.5 text-sm font-bold focus:border-mint-500 focus:ring-mint-500 shadow-inner dark:bg-deep-950 dark:border-white/10 dark:text-white outline-none bg-white">
-                       {INCOME_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+                       <option value="" disabled>Seleccione categoría...</option>
+                       {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                      </select>
                    </div>
                    <div className="col-span-1">
