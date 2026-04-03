@@ -16,7 +16,7 @@ export default function ForgotPassword() {
       setLoading(true)
       const { error } = await resetPassword(email)
       if (error) throw error
-      setMessage({ type: 'success', text: 'Revisa tu bandeja de entrada o spam. Te hemos enviado un enlace para restablecer tu contraseña.' })
+      setMessage({ type: 'success', text: 'Te enviamos un correo para restablecer tu contraseña' })
       setEmail('')
     } catch (err) {
       setMessage({ type: 'error', text: err.message || 'Error al enviar el correo. Verifica tu dirección.' })

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { supabase } from '../services/supabaseClient'
-import { Settings as SettingsIcon, User, Moon, Sun, DollarSign, Save, AlertCircle, CheckCircle, Mail } from 'lucide-react'
+import { Settings as SettingsIcon, User, Moon, Sun, DollarSign, Save, AlertCircle, CheckCircle, Mail, UserPlus, Send } from 'lucide-react'
 
 export default function Settings() {
   const { user } = useAuth()
@@ -10,9 +10,19 @@ export default function Settings() {
   const [name, setName] = useState(user?.user_metadata?.display_name || '')
   const [email, setEmail] = useState(user?.email || '')
   const [currency, setCurrency] = useState(localStorage.getItem('balanza_currency') || 'COP')
+  const [inviteEmail, setInviteEmail] = useState('')
   
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState({ type: '', text: '' })
+
+  const handleInvite = (e) => {
+    e.preventDefault()
+    const subject = "Te invito a unirte a Balanza"
+    const body = `Hola, te invito a unirte a mi grupo en Balanza para llevar un control de nuestros gastos compartidos.\n\nPor favor regístrate aquí:\n${window.location.origin}/register\n\n¡Un abrazo!`
+    window.location.href = `mailto:${inviteEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+    setInviteEmail('')
+    setMessage({ type: 'success', text: 'Gestor de correo abierto para enviar la invitación.' })
+  }
 
   const handleUpdateProfile = async (e) => {
     e.preventDefault()
@@ -73,6 +83,31 @@ export default function Settings() {
                   <span className={`${isDark ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform`} />
                 </button>
              </div>
+          </div>
+
+          <div className="glass-panel p-6 rounded-3xl border border-gray-100 dark:border-white/5">
+             <h3 className="text-sm font-extrabold text-deep-900 dark:text-white uppercase tracking-widest mb-6 flex items-center gap-2">
+               <UserPlus className="h-4 w-4 text-mint-500" /> Invitar al Grupo
+             </h3>
+             <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 font-medium leading-relaxed">
+               Envía velozmente una invitación para que otros colaboren en tus gastos.
+             </p>
+             <form onSubmit={handleInvite} className="space-y-4">
+               <div>
+                 <input
+                   type="email"
+                   required
+                   placeholder="correo@ejemplo.com"
+                   className="w-full rounded-2xl border border-gray-200 pl-4 pr-4 py-3 text-sm font-bold focus:border-mint-500 focus:ring-mint-500 shadow-inner dark:bg-deep-950 dark:border-white/10 dark:text-white outline-none transition"
+                   value={inviteEmail}
+                   onChange={(e) => setInviteEmail(e.target.value)}
+                 />
+               </div>
+               <button type="submit" className="w-full flex justify-center items-center gap-2 px-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-mint-500 to-mint-600 rounded-2xl shadow-lg shadow-mint-500/30 transition-all hover:scale-[1.02] active:scale-95">
+                 <Send className="h-4 w-4" />
+                 Enviar Invitación
+               </button>
+             </form>
           </div>
         </div>
 
