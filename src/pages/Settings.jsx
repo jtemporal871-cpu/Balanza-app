@@ -174,7 +174,7 @@ export default function Settings() {
                     <select
                       className="w-full rounded-2xl border border-gray-200 pl-12 pr-4 py-3.5 text-sm font-bold focus:border-mint-500 focus:ring-mint-500 shadow-inner dark:bg-deep-950 dark:border-white/10 dark:text-white outline-none transition"
                       value={currency}
-                      onChange={handleCurrencyChange}
+                      onChange={(e) => setCurrency(e.target.value)}
                     >
                       <option value="COP">Peso Colombiano (COP)</option>
                       <option value="USD">Dólar Estadounidense (USD)</option>
