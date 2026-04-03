@@ -10,7 +10,8 @@ const ICON_MAP = { ShoppingCart, Utensils, Car, Home, Coffee, Tv, Heart, Zap, Ta
 
 export default function Dashboard() {
   const { user } = useAuth()
-  const firstName = user?.user_metadata?.display_name?.split(' ')[0] || user?.email?.split('@')[0]
+  const rawFirstName = user?.user_metadata?.display_name?.split(' ')[0] || user?.email?.split('@')[0] || 'Usuario'
+  const firstName = rawFirstName.charAt(0).toUpperCase() + rawFirstName.slice(1).toLowerCase()
   
   const [data, setData] = useState({ participants: [], expenses: [], expenseSplits: [], settlements: [], categories: [], bankDebts: [] })
   const [loading, setLoading] = useState(true)
