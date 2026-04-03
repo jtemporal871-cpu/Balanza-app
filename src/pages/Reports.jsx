@@ -8,7 +8,8 @@ const ICON_MAP = { ShoppingCart, Utensils, Car, Home, Coffee, Tv, Heart, Zap, Ta
 export default function Reports() {
   const [data, setData] = useState({ expenses: [], participants: [], categories: [] })
   const [loading, setLoading] = useState(true)
-  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7))
+  const [timeFilter, setTimeFilter] = useState('this_month')
+  const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' })
 
   useEffect(() => {
     async function fetchData() {
@@ -44,8 +45,41 @@ export default function Reports() {
   })
   const maxMonthValue = Math.max(...monthlyData.map(m => m.total), 1) // prevent div by zero
 
-  // 2. Comparativa entre participantes en el selectedMonth
-  const expensesThisMonth = data.expenses.filter(e => e.date && e.date.startsWith(selectedMonth))
+  // 2. Comparativa entre participantes
+  const getFilteredExpenses = () => {
+    const now = new Date()
+    return data.expenses.filter(e => {
+      if (!e.date) return false
+      const eDate = new Date(e.date)
+      const eYear = eDate.getUTCFullYear()
+      const eMonth = eDate.getUTCMonth()
+      const nYear = now.getFullYear()
+      const nMonth = now.getMonth()
+
+      if (timeFilter === 'this_month') return eYear === nYear && eMonth === nMonth
+      if (timeFilter === 'last_3_months') {
+        const threeago = new Date()
+        threeago.setMonth(nMonth - 2)
+        return eDate >= threeago && eDate <= now
+      }
+      if (timeFilter === 'last_6_months') {
+        const sixago = new Date()
+        sixago.setMonth(nMonth - 5)
+        return eDate >= sixago && eDate <= now
+      }
+      if (timeFilter === 'this_year') return eYear === nYear
+      if (timeFilter === 'custom') {
+         if(!customDateRange.start || !customDateRange.end) return true
+         const sD = new Date(customDateRange.start)
+         const eD = new Date(customDateRange.end)
+         eD.setUTCHours(23, 59, 59)
+         return eDate >= sD && eDate <= eD
+      }
+      return true
+    })
+  }
+
+  const expensesThisMonth = getFilteredExpenses()
   const totalThisMonth = expensesThisMonth.reduce((sum, e) => sum + Number(e.amount), 0)
 
   const participantTotals = data.participants.map(p => {
@@ -91,19 +125,34 @@ export default function Reports() {
           </p>
         </div>
         
-        <div className="w-full sm:w-64">
-          <label className="block text-xs font-extrabold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-2">Filtrar detalles por</label>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-              <Calendar className="h-5 w-5 text-gray-400" />
-            </div>
-            <input 
-              type="month" 
-              className="w-full rounded-2xl border border-gray-200 pl-11 pr-4 py-3 text-sm font-bold focus:border-mint-500 focus:ring-mint-500 shadow-inner dark:bg-deep-950 dark:border-white/10 dark:text-white transition outline-none cursor-pointer"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-            />
-          </div>
+        <div className="w-full xl:w-auto">
+           <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 dark:text-gray-400">Filtrar detalles por fecha</label>
+           <div className="flex flex-col gap-3 w-full">
+             <div className="flex flex-wrap gap-2 bg-gray-50 dark:bg-black/20 p-2 rounded-2xl border border-gray-100 dark:border-white/5 w-fit">
+               {[
+                 { id: 'this_month', label: 'Este mes' },
+                 { id: 'last_3_months', label: 'Últimos 3 meses' },
+                 { id: 'last_6_months', label: 'Últimos 6 meses' },
+                 { id: 'this_year', label: 'Este año' },
+                 { id: 'custom', label: 'Personalizado' }
+               ].map(f => (
+                 <button
+                   key={f.id}
+                   onClick={() => setTimeFilter(f.id)}
+                   className={`px-4 py-2 text-xs sm:text-sm font-bold rounded-xl transition-all ${timeFilter === f.id ? 'bg-white text-mint-600 shadow-sm border border-gray-200 dark:bg-deep-800 dark:text-mint-400 dark:border-white/10' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white dark:hover:bg-white/5'}`}
+                 >
+                   {f.label}
+                 </button>
+               ))}
+             </div>
+             {timeFilter === 'custom' && (
+               <div className="flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+                 <input type="date" value={customDateRange.start} onChange={e => setCustomDateRange({...customDateRange, start: e.target.value})} className="flex-1 sm:flex-none rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-bold text-gray-600 focus:border-mint-500 focus:ring-mint-500 shadow-sm dark:bg-deep-950 dark:border-white/10 dark:text-white outline-none" />
+                 <span className="text-gray-400 font-bold">-</span>
+                 <input type="date" value={customDateRange.end} onChange={e => setCustomDateRange({...customDateRange, end: e.target.value})} className="flex-1 sm:flex-none rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-bold text-gray-600 focus:border-mint-500 focus:ring-mint-500 shadow-sm dark:bg-deep-950 dark:border-white/10 dark:text-white outline-none" />
+               </div>
+             )}
+           </div>
         </div>
       </div>
 

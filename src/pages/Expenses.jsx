@@ -20,7 +20,8 @@ export default function Expenses() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   
-  const [filterMonth, setFilterMonth] = useState(new Date().toISOString().slice(0, 7))
+  const [timeFilter, setTimeFilter] = useState('this_month')
+  const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' })
   const [filterCategory, setFilterCategory] = useState('all')
 
   const [showForm, setShowForm] = useState(false)
@@ -47,9 +48,11 @@ export default function Expenses() {
 
   useEffect(() => {
     if (participants.length > 0) {
-      fetchExpenses()
+      if (timeFilter !== 'custom' || (timeFilter === 'custom' && customDateRange.start && customDateRange.end)) {
+        fetchExpenses()
+      }
     }
-  }, [filterMonth, filterCategory, participants])
+  }, [timeFilter, customDateRange, filterCategory, participants])
 
   const fetchInitialData = async () => {
     try {
@@ -88,13 +91,35 @@ export default function Expenses() {
         .order('date', { ascending: false })
         .order('created_at', { ascending: false })
 
-      if (filterMonth) {
-        const startDate = `${filterMonth}-01`
-        const [year, month] = filterMonth.split('-')
-        const endDateDate = new Date(year, month, 0)
-        const endDate = `${filterMonth}-${endDateDate.getDate().toString().padStart(2, '0')}`
-        query = query.gte('date', startDate).lte('date', endDate)
+      const now = new Date()
+      let startDate, endDate
+      
+      if (timeFilter === 'this_month') {
+        const y = now.getFullYear()
+        const m = String(now.getMonth() + 1).padStart(2, '0')
+        startDate = `${y}-${m}-01`
+        const lastDay = new Date(y, now.getMonth() + 1, 0).getDate()
+        endDate = `${y}-${m}-${lastDay}`
+      } else if (timeFilter === 'last_3_months') {
+        const threeAgo = new Date(now.getFullYear(), now.getMonth() - 2, 1)
+        startDate = `${threeAgo.getFullYear()}-${String(threeAgo.getMonth() + 1).padStart(2, '0')}-01`
+        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+        endDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${lastDay}`
+      } else if (timeFilter === 'last_6_months') {
+        const sixAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1)
+        startDate = `${sixAgo.getFullYear()}-${String(sixAgo.getMonth() + 1).padStart(2, '0')}-01`
+        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+        endDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${lastDay}`
+      } else if (timeFilter === 'this_year') {
+        startDate = `${now.getFullYear()}-01-01`
+        endDate = `${now.getFullYear()}-12-31`
+      } else if (timeFilter === 'custom') {
+         startDate = customDateRange.start || null
+         endDate = customDateRange.end || null
       }
+
+      if (startDate) query = query.gte('date', startDate)
+      if (endDate) query = query.lte('date', endDate)
 
       if (filterCategory !== 'all') {
         query = query.eq('category_id', filterCategory)
@@ -405,20 +430,40 @@ export default function Expenses() {
       )}
 
       {/* FILTROS */}
-      <div className="mb-8 glass-panel p-6 rounded-3xl flex flex-col sm:flex-row gap-6 items-end">
-        <div className="flex-1 w-full">
-          <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 dark:text-gray-400">Mes a consultar</label>
-          <input 
-            type="month" 
-            className="w-full rounded-2xl border border-gray-200 px-5 py-3.5 text-sm font-medium focus:border-mint-500 focus:ring-mint-500 shadow-sm dark:bg-deep-950 dark:border-white/10 dark:text-white transition outline-none"
-            value={filterMonth}
-            onChange={(e) => setFilterMonth(e.target.value)}
-          />
+      <div className="mb-8 glass-panel p-6 rounded-3xl flex flex-col xl:flex-row gap-6 items-start xl:items-end w-full">
+        <div className="w-full xl:w-auto flex-1">
+           <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 dark:text-gray-400">Filtrar por fecha</label>
+           <div className="flex flex-col gap-3 w-full">
+             <div className="flex flex-wrap gap-2 bg-gray-50 dark:bg-black/20 p-2 rounded-2xl border border-gray-100 dark:border-white/5 w-fit">
+               {[
+                 { id: 'this_month', label: 'Este mes' },
+                 { id: 'last_3_months', label: 'Últimos 3 meses' },
+                 { id: 'last_6_months', label: 'Últimos 6 meses' },
+                 { id: 'this_year', label: 'Este año' },
+                 { id: 'custom', label: 'Personalizado' }
+               ].map(f => (
+                 <button
+                   key={f.id}
+                   onClick={() => setTimeFilter(f.id)}
+                   className={`px-4 py-2 text-xs sm:text-sm font-bold rounded-xl transition-all ${timeFilter === f.id ? 'bg-white text-mint-600 shadow-sm border border-gray-200 dark:bg-deep-800 dark:text-mint-400 dark:border-white/10' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white dark:hover:bg-white/5'}`}
+                 >
+                   {f.label}
+                 </button>
+               ))}
+             </div>
+             {timeFilter === 'custom' && (
+               <div className="flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+                 <input type="date" value={customDateRange.start} onChange={e => setCustomDateRange({...customDateRange, start: e.target.value})} className="flex-1 sm:flex-none rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-bold text-gray-600 focus:border-mint-500 focus:ring-mint-500 shadow-sm dark:bg-deep-950 dark:border-white/10 dark:text-white outline-none" />
+                 <span className="text-gray-400 font-bold">-</span>
+                 <input type="date" value={customDateRange.end} onChange={e => setCustomDateRange({...customDateRange, end: e.target.value})} className="flex-1 sm:flex-none rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-bold text-gray-600 focus:border-mint-500 focus:ring-mint-500 shadow-sm dark:bg-deep-950 dark:border-white/10 dark:text-white outline-none" />
+               </div>
+             )}
+           </div>
         </div>
-        <div className="flex-1 w-full">
+        <div className="w-full xl:w-auto xl:min-w-[250px] shrink-0">
           <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 dark:text-gray-400">Categoría</label>
           <select 
-            className="w-full rounded-2xl border border-gray-200 px-5 py-3.5 text-sm font-medium focus:border-mint-500 focus:ring-mint-500 shadow-sm dark:bg-deep-950 dark:border-white/10 dark:text-white transition outline-none"
+            className="w-full rounded-2xl border border-gray-200 px-5 py-3.5 text-sm font-bold text-gray-700 focus:border-mint-500 focus:ring-mint-500 shadow-sm dark:bg-deep-950 dark:border-white/10 dark:text-white transition outline-none"
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
           >
