@@ -5,10 +5,12 @@ import { Wallet, TrendingDown, Users, Activity, Check, Calendar, ArrowRight, Tag
 import { formatCOP } from '../utils/format'
 import { calculateBalances } from '../utils/balances'
 import { createPortal } from 'react-dom'
+import { useNavigate } from 'react-router-dom'
 
 const ICON_MAP = { ShoppingCart, Utensils, Car, Home, Coffee, Tv, Heart, Zap, Tag }
 
 export default function Dashboard() {
+  const navigate = useNavigate()
   const { user } = useAuth()
   const rawFirstName = user?.user_metadata?.display_name?.split(' ')[0] || user?.email?.split('@')[0] || 'Usuario'
   const firstName = rawFirstName.charAt(0).toUpperCase() + rawFirstName.slice(1).toLowerCase()
@@ -125,7 +127,7 @@ export default function Dashboard() {
 
   const metrics = [
     { title: 'Gastos de este mes', value: formatCOP(totalMes), icon: TrendingDown, color: 'from-rose-500 to-rose-600' },
-    { title: 'Deudas Pendientes', value: formatCOP(totalDebts), icon: Wallet, color: 'from-mint-500 to-mint-600' },
+    { title: 'Deudas Activas', value: formatCOP(totalBankDebtsAmount), icon: Wallet, color: 'from-mint-500 to-mint-600', href: '/debts' },
     { title: 'Quien más aportó (mes)', value: topPayerInfo.name, subtitle: formatCOP(topPayerInfo.amount), icon: Activity, color: 'from-blue-500 to-blue-600' },
     { title: 'Participantes', value: totalParticipants.toString(), icon: Users, color: 'from-purple-500 to-purple-600' }
   ]
@@ -155,7 +157,11 @@ export default function Dashboard() {
         {metrics.map((m, i) => {
            const Icon = m.icon
            return (
-             <div key={i} className="glass-panel p-6 rounded-3xl relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300">
+             <div 
+               key={i} 
+               onClick={() => m.href && navigate(m.href)}
+               className={`glass-panel p-6 rounded-3xl relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300 ${m.href ? 'cursor-pointer shadow-sm hover:shadow-mint-500/20' : ''}`}
+             >
                 <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full opacity-20 bg-gradient-to-br ${m.color} blur-2xl group-hover:opacity-40 transition-opacity`} />
                 <div className="flex items-start justify-between relative z-10">
                    <div>
