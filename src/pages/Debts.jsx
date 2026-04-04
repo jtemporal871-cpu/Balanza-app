@@ -21,6 +21,7 @@ export default function Debts() {
     name: '',
     total_amount: '',
     interest_rate: '0',
+    insurance_amount: '0',
     total_installments: '1',
     paid_installments: '0',
     start_date: new Date().toISOString().slice(0, 10)
@@ -28,17 +29,19 @@ export default function Debts() {
 
   // Motor financiero: Fórmula de amortización
   const calculateInstallment = (principal, months, rate) => {
-    if (!principal || !months || Number(months) === 0) return 0
+    if (!principal || !months || Number(months) <= 0) return 0
     const p = Number(principal)
     const n = Number(months)
-    const r = Number(rate) / 100
+    const i = Number(rate) / 100
 
-    if (r === 0) return p / n
-    const factor = Math.pow(1 + r, n)
-    return p * ((r * factor) / (factor - 1))
+    if (i === 0) return p / n
+    const factor = Math.pow(1 + i, n)
+    return p * (i * factor) / (factor - 1)
   }
 
-  const generatedInstallment = calculateInstallment(form.total_amount, form.total_installments, form.interest_rate)
+  const baseInstallment = calculateInstallment(form.total_amount, form.total_installments, form.interest_rate)
+  const insuranceAmount = Number(form.insurance_amount) || 0
+  const generatedInstallment = baseInstallment + insuranceAmount
 
   useEffect(() => {
     fetchDebts()
@@ -66,13 +69,14 @@ export default function Debts() {
         name: debt.name,
         total_amount: debt.total_amount.toString(),
         interest_rate: debt.interest_rate.toString(),
+        insurance_amount: (debt.insurance_amount || 0).toString(),
         total_installments: debt.total_installments.toString(),
         paid_installments: debt.paid_installments.toString(),
         start_date: debt.start_date
       })
     } else {
       setEditingId(null)
-      setForm({ name: '', total_amount: '', interest_rate: '0', total_installments: '1', paid_installments: '0', start_date: new Date().toISOString().slice(0, 10) })
+      setForm({ name: '', total_amount: '', interest_rate: '0', insurance_amount: '0', total_installments: '1', paid_installments: '0', start_date: new Date().toISOString().slice(0, 10) })
     }
     setShowForm(true)
   }
@@ -97,6 +101,7 @@ export default function Debts() {
         total_amount: Number(form.total_amount),
         remaining_amount: calculatedRemaining,
         interest_rate: Number(form.interest_rate),
+        insurance_amount: Number(form.insurance_amount || 0),
         total_installments: tInstallments,
         paid_installments: pInstallments,
         installment_amount: generatedInstallment,
@@ -151,17 +156,18 @@ export default function Debts() {
       const newRemaining = Math.max(0, debt.remaining_amount - abono)
       
       const n = debt.total_installments - debt.paid_installments
-      const rate = Number(debt.interest_rate) / 100
+      const i = Number(debt.interest_rate) / 100
+      const ins = Number(debt.insurance_amount || 0)
       let newInstallment = 0
       
       const isPaidOff = newRemaining <= 0
 
       if (!isPaidOff && n > 0) {
-         if (rate === 0) {
-            newInstallment = newRemaining / n
+         if (i === 0) {
+            newInstallment = (newRemaining / n) + ins
          } else {
-            const factor = Math.pow(1 + rate, n)
-            newInstallment = newRemaining * ((rate * factor) / (factor - 1))
+            const factor = Math.pow(1 + i, n)
+            newInstallment = (newRemaining * (i * factor) / (factor - 1)) + ins
          }
       }
 
@@ -264,8 +270,18 @@ export default function Debts() {
                     <p className="text-xl font-black text-rose-500">{formatCOP(debt.remaining_amount)}</p>
                   </div>
                   <div className="bg-gray-50 dark:bg-deep-950 p-4 rounded-2xl border border-gray-100 dark:border-white/5">
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Cuota Mensual</p>
-                    <p className="text-xl font-black text-deep-900 dark:text-white">{formatCOP(debt.installment_amount)}</p>
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Cuota Total</p>
+                    <p className="text-xl font-black text-deep-900 dark:text-white mb-2">{formatCOP(debt.installment_amount)}</p>
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[11px] font-bold text-gray-500">
+                        <span>Base:</span>
+                        <span>{formatCOP(debt.installment_amount - (debt.insurance_amount || 0))}</span>
+                      </div>
+                      <div className="flex justify-between text-[11px] font-bold text-gray-500">
+                        <span>Seguro:</span>
+                        <span>{formatCOP(debt.insurance_amount || 0)}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -359,6 +375,11 @@ export default function Debts() {
                      <input type="number" step="0.01" required value={form.interest_rate} onChange={e => setForm({...form, interest_rate: e.target.value})}
                        className="w-full rounded-2xl border border-gray-200 px-5 py-3.5 text-sm font-bold focus:border-mint-500 focus:ring-mint-500 shadow-inner dark:bg-deep-950 dark:border-white/10 dark:text-white transition outline-none" />
                    </div>
+                   <div className="col-span-2">
+                     <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Seguro Mensual Fijo (COP) (Opcional)</label>
+                     <input type="text" inputMode="numeric" value={form.insurance_amount ? new Intl.NumberFormat('es-CO').format(form.insurance_amount) : ''} onChange={e => setForm({...form, insurance_amount: e.target.value.replace(/\D/g, '')})}
+                       className="w-full rounded-2xl border border-gray-200 px-5 py-3.5 text-sm font-bold focus:border-mint-500 focus:ring-mint-500 shadow-inner dark:bg-deep-950 dark:border-white/10 dark:text-white transition outline-none" placeholder="Ej: 5000" />
+                   </div>
                  </div>
 
                  <div className="grid grid-cols-[1fr_1fr_auto] sm:grid-cols-3 gap-5">
@@ -380,8 +401,19 @@ export default function Debts() {
                  </div>
 
                  <div className="bg-mint-50 dark:bg-deep-950 p-5 rounded-2xl border border-mint-100 dark:border-white/5 mt-6 relative overflow-hidden">
-                   <p className="text-xs font-bold text-mint-600 dark:text-mint-400 uppercase tracking-widest mb-1 relative z-10">Cuota Mensual Fija Calculada</p>
-                   <p className="text-3xl font-black text-deep-900 dark:text-white tracking-tight relative z-10">{formatCOP(generatedInstallment)}</p>
+                   <p className="text-xs font-bold text-mint-600 dark:text-mint-400 uppercase tracking-widest mb-4 relative z-10">Desglose de Cuota Mensual</p>
+                   <div className="flex justify-between items-center text-sm font-bold text-gray-600 dark:text-gray-400 relative z-10 mb-1">
+                     <span>Cuota Base:</span>
+                     <span>{formatCOP(baseInstallment)}</span>
+                   </div>
+                   <div className="flex justify-between items-center text-sm font-bold text-gray-600 dark:text-gray-400 relative z-10 mb-5">
+                     <span>Seguro:</span>
+                     <span>{formatCOP(insuranceAmount)}</span>
+                   </div>
+                   <div className="flex justify-between items-center pt-4 border-t border-mint-200 dark:border-white/10 relative z-10">
+                     <span className="text-sm font-black text-mint-700 dark:text-mint-400 uppercase tracking-widest">Total:</span>
+                     <span className="text-3xl font-black text-deep-900 dark:text-white tracking-tight">{formatCOP(generatedInstallment)}</span>
+                   </div>
                  </div>
                </form>
              </div>

@@ -275,7 +275,7 @@ export default function Categories() {
                   <h3 className="text-base font-bold text-deep-900 dark:text-white truncate tracking-tight">{cat.name}</h3>
                 </div>
                 
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 hidden group-hover:flex gap-1.5 bg-white/90 backdrop-blur-md dark:bg-deep-800/90 rounded-xl p-1.5 shadow-lg border border-gray-200 dark:border-white/10 transition-all">
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 flex opacity-100 sm:opacity-0 sm:group-hover:opacity-100 gap-1.5 bg-white/90 backdrop-blur-md dark:bg-deep-800/90 rounded-xl p-1.5 shadow-lg border border-gray-200 dark:border-white/10 transition-all">
                    <button onClick={() => startEdit(cat)} className="p-2 text-gray-400 hover:text-mint-600 hover:bg-mint-50 rounded-lg transition-colors dark:hover:text-mint-400 dark:hover:bg-white/5" title="Editar">
                      <Edit2 className="h-4 w-4" />
                    </button>
