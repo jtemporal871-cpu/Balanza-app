@@ -54,8 +54,8 @@ export default function Register() {
       <div className="w-full max-w-md relative z-10 animate-in zoom-in-95 duration-500 flex flex-col items-center">
         
         <div className="text-center mb-6">
-          <div className="inline-flex h-16 w-16 rounded-2xl bg-gradient-to-br from-mint-500 to-mint-600 items-center justify-center shadow-lg shadow-mint-500/30 ring-4 ring-white/50 dark:ring-white/10 mb-4">
-            <Receipt className="h-8 w-8 text-white" />
+          <div className="mb-6 flex justify-center">
+            <img src="/logo.png" alt="Balanza" className="h-20 w-auto rounded-2xl drop-shadow-lg shadow-mint-500/20" />
           </div>
           <h2 className="text-3xl font-extrabold text-deep-900 dark:text-white tracking-tight">
             Crear Cuenta

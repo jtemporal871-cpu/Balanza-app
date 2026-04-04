@@ -40,9 +40,7 @@ export default function MainLayout({ children }) {
       >
         <div className="flex h-20 shrink-0 items-center justify-between px-8 border-b border-white/10 bg-deep-900/30">
           <div className="flex items-center gap-3">
-             <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-mint-500 to-mint-600 flex items-center justify-center shadow-lg shadow-mint-500/30 ring-1 ring-white/20">
-               <Receipt className="h-5 w-5 text-white" />
-             </div>
+             <img src="/logo.png" alt="Balanza" className="h-8 w-auto rounded-lg drop-shadow-md" />
              <span className="text-2xl font-extrabold tracking-tight text-white">
                Balanza
              </span>
@@ -111,9 +109,7 @@ export default function MainLayout({ children }) {
         {/* Mobile top bar */}
         <header className="flex h-16 shrink-0 items-center justify-between border-b border-gray-200 bg-white/80 backdrop-blur-xl px-5 dark:border-white/5 dark:bg-deep-900/80 lg:hidden shadow-sm z-30">
           <div className="flex items-center gap-2.5">
-             <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-mint-500 to-mint-600 flex items-center justify-center shadow-md">
-               <Receipt className="h-4 w-4 text-white" />
-             </div>
+             <img src="/logo.png" alt="Balanza" className="h-8 w-auto rounded-lg drop-shadow-sm" />
              <span className="text-xl font-extrabold text-deep-900 dark:text-white">
                Balanza
              </span>
