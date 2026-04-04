@@ -90,9 +90,18 @@ export default function Debts() {
       const tInstallments = Number(form.total_installments)
       const pInstallments = Number(form.paid_installments)
 
-      // Recalcular saldo pendiente como la cantidad de cuotas faltantes multiplicadas por el valor de la cuota real.
-      // Esto respeta y balancea de forma matemática perfecta los descuentos tras un interés.
-      const calculatedRemaining = Math.max(0, (tInstallments - pInstallments) * generatedInstallment)
+      // Recalcular saldo pendiente (Capital amortizado) al momento de guardar
+      let currentRemaining = Number(form.total_amount)
+      const monthlyRate = Number(form.interest_rate) / 100
+      
+      // Amortización francesa: k cuotas pagadas
+      for (let k = 0; k < pInstallments; k++) {
+        const interestPortion = currentRemaining * monthlyRate
+        const capitalPortion = baseInstallment - interestPortion
+        currentRemaining = Math.max(0, currentRemaining - capitalPortion)
+      }
+
+      const calculatedRemaining = pInstallments >= tInstallments ? 0 : currentRemaining
       const isPaidOff = pInstallments >= tInstallments
 
       const debtData = {
@@ -131,7 +140,13 @@ export default function Debts() {
     try {
       const newPaid = debt.paid_installments + 1
       const isPaidOff = newPaid >= debt.total_installments
-      const newRemaining = isPaidOff ? 0 : Math.max(0, debt.remaining_amount - debt.installment_amount)
+      
+      // Descontar solo la porción de capital del saldo pendiente
+      const monthlyRate = Number(debt.interest_rate) / 100
+      const baseInstallmentValue = debt.installment_amount - (debt.insurance_amount || 0)
+      const interestPortion = debt.remaining_amount * monthlyRate
+      const capitalPortion = baseInstallmentValue - interestPortion
+      const newRemaining = isPaidOff ? 0 : Math.max(0, debt.remaining_amount - capitalPortion)
       
       const { error } = await supabase.from('debts').update({
         paid_installments: newPaid,
