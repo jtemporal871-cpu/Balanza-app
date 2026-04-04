@@ -28,11 +28,12 @@ export default function Login() {
     try {
       setError('')
       setLoading(true)
-      const { error } = await signIn({ email, password })
+      const { error } = await signIn(email, password)
       if (error) throw error
       navigate('/')
     } catch (err) {
-      setError('Error al iniciar sesión. Verifica tus credenciales.')
+      console.error('Error detallado de Supabase:', err)
+      setError(err?.message || 'Error al iniciar sesión. Verifica tus credenciales.')
     } finally {
       setLoading(false)
     }
