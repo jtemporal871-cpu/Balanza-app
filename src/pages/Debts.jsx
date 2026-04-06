@@ -8,7 +8,9 @@ import { formatCOP } from '../utils/format'
 export default function Debts() {
   const { user } = useAuth()
   const [debts, setDebts] = useState([])
+  const [debtCategories, setDebtCategories] = useState([])
   const [loading, setLoading] = useState(true)
+  const [filterCategory, setFilterCategory] = useState('all')
   const [showForm, setShowForm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -24,7 +26,8 @@ export default function Debts() {
     insurance_amount: '0',
     total_installments: '1',
     paid_installments: '0',
-    start_date: new Date().toISOString().slice(0, 10)
+    start_date: new Date().toISOString().slice(0, 10),
+    category_id: ''
   })
 
   // Motor financiero: Fórmula de amortización
@@ -44,21 +47,33 @@ export default function Debts() {
   const generatedInstallment = baseInstallment + insuranceAmount
 
   useEffect(() => {
-    fetchDebts()
+    fetchInitialData()
   }, [])
 
-  const fetchDebts = async () => {
+  const fetchInitialData = async () => {
     setLoading(true)
     try {
-      const { data, error } = await supabase.from('debts').select('*').order('created_at', { ascending: false })
-      if (error) throw error
-      setDebts(data || [])
+      const [debtRes, catRes] = await Promise.all([
+        supabase.from('debts').select('*').order('created_at', { ascending: false }),
+        supabase.from('debt_categories').select('*').order('name', { ascending: true })
+      ])
+      
+      if (debtRes.error) throw debtRes.error
+      if (catRes.error) throw catRes.error
+      
+      setDebts(debtRes.data || [])
+      setDebtCategories(catRes.data || [])
     } catch (err) {
       console.error(err)
-      setError('Error al cargar deudas.')
+      setError('Error al cargar datos.')
     } finally {
       setLoading(false)
     }
+  }
+
+  const fetchDebts = async () => {
+    // Legacy fetch renamed for compatibility
+    fetchInitialData()
   }
 
   const openForm = (debt = null) => {
@@ -72,11 +87,12 @@ export default function Debts() {
         insurance_amount: (debt.insurance_amount || 0).toString(),
         total_installments: debt.total_installments.toString(),
         paid_installments: debt.paid_installments.toString(),
-        start_date: debt.start_date
+        start_date: debt.start_date,
+        category_id: debt.category_id || ''
       })
     } else {
       setEditingId(null)
-      setForm({ name: '', total_amount: '', interest_rate: '0', insurance_amount: '0', total_installments: '1', paid_installments: '0', start_date: new Date().toISOString().slice(0, 10) })
+      setForm({ name: '', total_amount: '', interest_rate: '0', insurance_amount: '0', total_installments: '1', paid_installments: '0', start_date: new Date().toISOString().slice(0, 10), category_id: '' })
     }
     setShowForm(true)
   }
@@ -115,7 +131,8 @@ export default function Debts() {
         paid_installments: pInstallments,
         installment_amount: generatedInstallment,
         start_date: form.start_date,
-        status: isPaidOff ? 'paid' : 'active'
+        status: isPaidOff ? 'paid' : 'active',
+        category_id: form.category_id || null
       }
 
       if (editingId) {
@@ -212,6 +229,12 @@ export default function Debts() {
     } catch (err) { alert('Error al eliminar') }
   }
 
+  // Cálculos de resumen dinámicos basados en filtro
+  const filteredDebts = debts.filter(d => filterCategory === 'all' || d.category_id === filterCategory)
+  const activeDebts = filteredDebts.filter(d => d.status === 'active')
+  const totalPending = activeDebts.reduce((sum, d) => sum + d.remaining_amount, 0)
+  const totalMonthly = activeDebts.reduce((sum, d) => sum + d.installment_amount, 0)
+
   return (
     <div className="p-6 lg:p-10 max-w-7xl mx-auto animate-in fade-in duration-500">
       <div className="sm:flex sm:items-center sm:justify-between mb-10">
@@ -220,7 +243,7 @@ export default function Debts() {
             <Landmark className="h-8 w-8 text-mint-500" /> Mis Deudas
           </h1>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 max-w-xl">
-            Calcula la amortización mediante cuotas fijas y lleva el control riguroso de todo lo que le debes al banco.
+            Control de cuentas por pagar, préstamos y amortización con seguros incluidos.
           </p>
         </div>
         <div className="mt-4 flex gap-3 sm:mt-0">
@@ -233,6 +256,53 @@ export default function Debts() {
         </div>
       </div>
 
+      {/* TARJETAS RESUMEN */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+        <div className="glass-panel p-6 rounded-3xl border-l-4 border-l-rose-500">
+          <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Total Pendiente</p>
+          <div className="flex items-end gap-2">
+            <span className="text-3xl font-black text-deep-900 dark:text-white">{formatCOP(totalPending)}</span>
+          </div>
+          <p className="text-[11px] font-bold text-gray-500 mt-2">Capital por amortizar</p>
+        </div>
+        <div className="glass-panel p-6 rounded-3xl border-l-4 border-l-mint-500">
+          <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Cuota Mensual</p>
+          <div className="flex items-end gap-2">
+            <span className="text-3xl font-black text-deep-900 dark:text-white">{formatCOP(totalMonthly)}</span>
+          </div>
+          <p className="text-[11px] font-bold text-gray-500 mt-2">Total compromisos del mes</p>
+        </div>
+        <div className="glass-panel p-6 rounded-3xl border-l-4 border-l-blue-500">
+          <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Deudas Activas</p>
+          <div className="flex items-end gap-2">
+            <span className="text-3xl font-black text-deep-900 dark:text-white">{activeDebts.length}</span>
+            <span className="text-sm font-bold text-gray-400 mb-1">Obligaciones</span>
+          </div>
+          <p className="text-[11px] font-bold text-gray-500 mt-2">Préstamos con saldo</p>
+        </div>
+      </div>
+
+      {/* FILTROS POR CATEGORÍA */}
+      <div className="mb-8 overflow-x-auto pb-4 custom-scrollbar">
+        <div className="flex gap-3">
+          <button
+            onClick={() => setFilterCategory('all')}
+            className={`px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest transition-all ${filterCategory === 'all' ? 'bg-deep-900 text-white shadow-lg dark:bg-mint-500' : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-white/5 dark:text-gray-400'}`}
+          >
+            Todas
+          </button>
+          {debtCategories.map(cat => (
+            <button
+              key={cat.id}
+              onClick={() => setFilterCategory(cat.id)}
+              className={`px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${filterCategory === cat.id ? 'bg-deep-900 text-white shadow-lg dark:bg-mint-500' : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-white/5 dark:text-gray-400'}`}
+            >
+              {cat.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Lista de Deudas */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {loading ? (
@@ -240,16 +310,16 @@ export default function Debts() {
             <div className="animate-spin h-8 w-8 border-4 border-current border-t-transparent rounded-full mb-4" />
             <span className="font-bold">Cargando...</span>
           </div>
-        ) : debts.length === 0 ? (
+        ) : filteredDebts.length === 0 ? (
           <div className="lg:col-span-2 p-24 flex flex-col items-center justify-center text-center glass-panel rounded-3xl">
              <div className="bg-mint-500/10 text-mint-600 dark:bg-mint-500/20 dark:text-mint-400 h-20 w-20 rounded-3xl flex items-center justify-center mb-6">
               <Landmark className="h-10 w-10" />
             </div>
-            <h3 className="text-xl font-extrabold text-deep-900 dark:text-white">Libertad Financiera</h3>
-            <p className="mt-2 text-sm text-gray-500">No tienes ninguna deuda registrada actualmente.</p>
+            <h3 className="text-xl font-extrabold text-deep-900 dark:text-white">Sin resultados</h3>
+            <p className="mt-2 text-sm text-gray-500">No hay deudas {filterCategory === 'all' ? 'registradas' : 'en esta categoría'}.</p>
           </div>
         ) : (
-          debts.map(debt => {
+          filteredDebts.map(debt => {
             const isPaid = debt.status === 'paid'
             const progress = Math.min(100, Math.max(0, (debt.paid_installments / debt.total_installments) * 100))
             
@@ -263,9 +333,16 @@ export default function Debts() {
                 <div className="flex justify-between items-start mb-6">
                   <div>
                     <h3 className="text-xl font-black text-deep-900 dark:text-white tracking-tight pr-12">{debt.name}</h3>
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-2">
-                       <Calendar className="h-4 w-4" /> Inicio: {new Date(debt.start_date).toLocaleDateString()}
-                    </p>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                       <p className="text-[10px] font-black uppercase bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400 px-2 py-1 rounded-md flex items-center gap-1.5">
+                          <Calendar className="h-3 w-3" /> Inicio: {new Date(debt.start_date).toLocaleDateString()}
+                       </p>
+                       {debt.category_id && (
+                         <p className="text-[10px] font-black uppercase bg-mint-50 dark:bg-mint-500/10 text-mint-600 dark:text-mint-400 px-2 py-1 rounded-md">
+                           {debtCategories.find(c => c.id === debt.category_id)?.name || 'Deuda'}
+                         </p>
+                       )}
+                    </div>
                   </div>
                   <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                     {!isPaid && (
@@ -374,10 +451,25 @@ export default function Debts() {
                <form id="debt-form" onSubmit={handleSave} className="space-y-6">
                  <div>
                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Nombre de la Deuda</label>
-                   <input type="text" required value={form.name} onChange={e => setForm({...form, name: e.target.value})}
-                     className="w-full rounded-2xl border border-gray-200 px-5 py-3.5 text-sm font-medium focus:border-mint-500 focus:ring-mint-500 shadow-inner dark:bg-deep-950 dark:border-white/10 dark:text-white transition outline-none"
-                     placeholder="Ej. Tarjeta de Crédito, Préstamo Vehículo" />
-                 </div>
+                    <input type="text" required value={form.name} onChange={e => setForm({...form, name: e.target.value})}
+                      className="w-full rounded-2xl border border-gray-200 px-5 py-3.5 text-sm font-medium focus:border-mint-500 focus:ring-mint-500 shadow-inner dark:bg-deep-950 dark:border-white/10 dark:text-white transition outline-none"
+                      placeholder="Ej. Tarjeta de Crédito, Préstamo Vehículo" />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Categoría de Deuda</label>
+                    <select 
+                      required 
+                      value={form.category_id} 
+                      onChange={e => setForm({...form, category_id: e.target.value})}
+                      className="w-full rounded-2xl border border-gray-200 px-5 py-3.5 text-sm font-bold focus:border-mint-500 focus:ring-mint-500 shadow-inner dark:bg-deep-950 dark:border-white/10 dark:text-white transition outline-none"
+                    >
+                      <option value="" disabled>Seleccione una categoría...</option>
+                      {debtCategories.map(cat => (
+                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                      ))}
+                    </select>
+                  </div>
 
                  <div className="grid grid-cols-2 gap-5">
                    <div className="col-span-2 sm:col-span-1">

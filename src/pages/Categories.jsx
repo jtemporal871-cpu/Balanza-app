@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../services/supabaseClient'
 import { useAuth } from '../context/AuthContext'
-import { Plus, Edit2, Trash2, X, Check, AlertCircle, ShoppingCart, Utensils, Car, Home, Coffee, Tv, Heart, Zap, Tag, Briefcase, Calendar, Laptop, RefreshCw, ShoppingBag } from 'lucide-react'
+import { Plus, Edit2, Trash2, X, Check, AlertCircle, ShoppingCart, Utensils, Car, Home, Coffee, Tv, Heart, Zap, Tag, Briefcase, Calendar, Laptop, RefreshCw, ShoppingBag, CreditCard, BookOpen, User } from 'lucide-react'
 
 const ICON_OPTIONS = {
   ShoppingCart, Utensils, Car, Home, Coffee, Tv, Heart, Zap, Tag,
-  Briefcase, Calendar, Laptop, RefreshCw, ShoppingBag, Plus
+  Briefcase, Calendar, Laptop, RefreshCw, ShoppingBag, CreditCard, BookOpen, User, Plus
 }
 
 const COLOR_OPTIONS = [
@@ -16,6 +16,7 @@ const COLOR_OPTIONS = [
 export default function Categories() {
   const { user } = useAuth()
   const [categories, setCategories] = useState([])
+  const [debtCategories, setDebtCategories] = useState([])
   const [activeTab, setActiveTab] = useState('gasto')
   const [loading, setLoading] = useState(true)
   const [isAdding, setIsAdding] = useState(false)
@@ -33,14 +34,19 @@ export default function Categories() {
   const fetchCategories = async () => {
     try {
       setLoading(true)
-      const { data, error } = await supabase
-        .from('categories')
-        .select('*')
-        .order('created_at', { ascending: true })
+      const [catRes, debtCatRes] = await Promise.all([
+        supabase.from('categories').select('*').order('created_at', { ascending: true }),
+        supabase.from('debt_categories').select('*').order('created_at', { ascending: true })
+      ])
       
-      if (error) throw error
+      if (catRes.error) throw catRes.error
+      if (debtCatRes.error) throw debtCatRes.error
 
-      const incomes = data?.filter(c => c.type === 'ingreso') || []
+      const currentCats = catRes.data || []
+      const currentDebtCats = debtCatRes.data || []
+
+      // Seed incomes if empty
+      const incomes = currentCats.filter(c => c.type === 'ingreso')
       if (incomes.length === 0) {
         const defaults = [
           { name: 'Salario', icon: 'Briefcase', color: 'bg-mint-500', type: 'ingreso', user_id: user.id },
@@ -51,18 +57,29 @@ export default function Categories() {
           { name: 'Venta', icon: 'ShoppingBag', color: 'bg-pink-500', type: 'ingreso', user_id: user.id },
           { name: 'Otro', icon: 'Plus', color: 'bg-gray-500', type: 'ingreso', user_id: user.id }
         ]
-        const { data: newIncomes, error: insertError } = await supabase
-          .from('categories')
-          .insert(defaults)
-          .select()
-          
-        if (!insertError && newIncomes) {
-          setCategories([...data, ...newIncomes])
-          return
-        }
+        await supabase.from('categories').insert(defaults)
+        // Refresh after seed
+        fetchCategories()
+        return
       }
 
-      setCategories(data || [])
+      // Seed debt categories if empty
+      if (currentDebtCats.length === 0) {
+        const debtDefaults = [
+          { name: 'Tarjeta Crédito', icon: 'CreditCard', color: 'bg-rose-500', user_id: user.id },
+          { name: 'Vehículo', icon: 'Car', color: 'bg-blue-500', user_id: user.id },
+          { name: 'Hipoteca', icon: 'Home', color: 'bg-mint-500', user_id: user.id },
+          { name: 'Educación', icon: 'BookOpen', color: 'bg-purple-500', user_id: user.id },
+          { name: 'Personal', icon: 'User', color: 'bg-orange-500', user_id: user.id },
+          { name: 'Otro', icon: 'Plus', color: 'bg-gray-500', user_id: user.id }
+        ]
+        await supabase.from('debt_categories').insert(debtDefaults)
+        fetchCategories()
+        return
+      }
+
+      setCategories(currentCats)
+      setDebtCategories(currentDebtCats)
     } catch (err) {
       setError('Error al cargar categorías.')
     } finally {
@@ -83,22 +100,34 @@ export default function Categories() {
     if (!name.trim()) return
     
     try {
+      const table = activeTab === 'deuda' ? 'debt_categories' : 'categories'
       if (editingId) {
         const { error } = await supabase
-          .from('categories')
+          .from(table)
           .update({ name: name.trim(), icon, color })
           .eq('id', editingId)
         
         if (error) throw error
-        setCategories(categories.map(c => c.id === editingId ? { ...c, name: name.trim(), icon, color } : c))
+        if (activeTab === 'deuda') {
+          setDebtCategories(debtCategories.map(c => c.id === editingId ? { ...c, name: name.trim(), icon, color } : c))
+        } else {
+          setCategories(categories.map(c => c.id === editingId ? { ...c, name: name.trim(), icon, color } : c))
+        }
       } else {
+        const insertData = { name: name.trim(), icon, color, user_id: user.id }
+        if (activeTab !== 'deuda') insertData.type = activeTab
+
         const { data, error } = await supabase
-          .from('categories')
-          .insert([{ name: name.trim(), icon, color, user_id: user.id, type: activeTab }])
+          .from(table)
+          .insert([insertData])
           .select()
         
         if (error) throw error
-        setCategories([...categories, data[0]])
+        if (activeTab === 'deuda') {
+          setDebtCategories([...debtCategories, data[0]])
+        } else {
+          setCategories([...categories, data[0]])
+        }
       }
       resetForm()
     } catch (err) {
@@ -118,13 +147,18 @@ export default function Categories() {
     if (!confirm('¿Estás seguro de eliminar esta categoría?')) return
     
     try {
+      const table = activeTab === 'deuda' ? 'debt_categories' : 'categories'
       const { error } = await supabase
-        .from('categories')
+        .from(table)
         .delete()
         .eq('id', id)
       
       if (error) throw error
-      setCategories(categories.filter(c => c.id !== id))
+      if (activeTab === 'deuda') {
+        setDebtCategories(debtCategories.filter(c => c.id !== id))
+      } else {
+        setCategories(categories.filter(c => c.id !== id))
+      }
     } catch (err) {
       setError('Error al eliminar categoría.')
     }
@@ -152,7 +186,7 @@ export default function Categories() {
         </div>
       </div>
 
-      <div className="flex bg-gray-50 dark:bg-black/20 p-1.5 rounded-2xl border border-gray-100 dark:border-white/5 mb-8 w-full max-w-md mx-auto sm:mx-0">
+      <div className="flex bg-gray-50 dark:bg-black/20 p-1.5 rounded-2xl border border-gray-100 dark:border-white/5 mb-8 w-full max-w-lg mx-auto sm:mx-0">
         <button
           onClick={() => { setActiveTab('gasto'); setIsAdding(false); }}
           className={`flex-1 py-2 font-bold text-sm sm:text-base rounded-xl transition ${activeTab === 'gasto' ? 'bg-white text-mint-600 shadow-sm dark:bg-deep-800 dark:text-mint-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white'}`}
@@ -164,6 +198,12 @@ export default function Categories() {
           className={`flex-1 py-2 font-bold text-sm sm:text-base rounded-xl transition ${activeTab === 'ingreso' ? 'bg-white text-mint-600 shadow-sm dark:bg-deep-800 dark:text-mint-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white'}`}
         >
           Ingresos
+        </button>
+        <button
+          onClick={() => { setActiveTab('deuda'); setIsAdding(false); }}
+          className={`flex-1 py-2 font-bold text-sm sm:text-base rounded-xl transition ${activeTab === 'deuda' ? 'bg-white text-mint-600 shadow-sm dark:bg-deep-800 dark:text-mint-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white'}`}
+        >
+          Deudas
         </button>
       </div>
 
@@ -255,16 +295,16 @@ export default function Categories() {
             <div className="animate-spin h-8 w-8 border-4 border-current border-t-transparent rounded-full mb-4" />
             <span className="font-bold text-sm">Cargando categorías...</span>
           </div>
-        ) : categories.filter(c => c.type === activeTab).length === 0 && !isAdding ? (
+        ) : (activeTab === 'deuda' ? debtCategories : categories.filter(c => c.type === activeTab)).length === 0 && !isAdding ? (
           <div className="col-span-full p-20 flex flex-col items-center justify-center text-center glass-panel rounded-3xl">
              <div className="bg-mint-500/10 text-mint-600 dark:bg-mint-500/20 dark:text-mint-400 h-20 w-20 rounded-3xl flex items-center justify-center mb-6 shadow-inner ring-1 ring-mint-500/20">
               <Tag className="h-10 w-10" />
             </div>
             <h3 className="text-xl font-extrabold text-deep-900 dark:text-white tracking-tight">Módulo Vacio</h3>
-            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 max-w-sm">No has agregado ninguna categoría para {activeTab}s.</p>
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 max-w-sm">No has agregado ninguna categoría para {activeTab === 'deuda' ? 'deuda' : activeTab}s.</p>
           </div>
         ) : (
-          categories.filter(c => c.type === activeTab).map((cat) => {
+          (activeTab === 'deuda' ? debtCategories : categories.filter(c => c.type === activeTab)).map((cat) => {
             const IconComp = ICON_OPTIONS[cat.icon] || Tag
             return (
               <div key={cat.id} className="group relative flex items-center p-5 glass-panel rounded-3xl hover:-translate-y-1 hover:shadow-xl transition-all duration-300 border border-gray-100 dark:border-white/5">
