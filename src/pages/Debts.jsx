@@ -258,49 +258,44 @@ export default function Debts() {
 
       {/* TARJETAS RESUMEN */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-        <div className="glass-panel p-6 rounded-3xl border-l-4 border-l-rose-500">
-          <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Total Pendiente</p>
-          <div className="flex items-end gap-2">
-            <span className="text-3xl font-black text-deep-900 dark:text-white">{formatCOP(totalPending)}</span>
+        <div className="bg-gradient-to-br from-[#fff5f5] to-[#ffe0e0] p-6 rounded-[2rem] border border-rose-100 shadow-sm">
+          <p className="text-xs font-black text-red-800/60 uppercase tracking-widest mb-2">Total Pendiente</p>
+          <div className="flex items-end gap-2 text-red-900">
+            <span className="text-3xl font-black">{formatCOP(totalPending)}</span>
           </div>
-          <p className="text-[11px] font-bold text-gray-500 mt-2">Capital por amortizar</p>
+          <p className="text-[11px] font-bold text-red-800/50 mt-2">Capital por amortizar</p>
         </div>
-        <div className="glass-panel p-6 rounded-3xl border-l-4 border-l-mint-500">
-          <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Cuota Mensual</p>
-          <div className="flex items-end gap-2">
-            <span className="text-3xl font-black text-deep-900 dark:text-white">{formatCOP(totalMonthly)}</span>
+        <div className="bg-gradient-to-br from-[#f0f7ff] to-[#dceeff] p-6 rounded-[2rem] border border-blue-100 shadow-sm">
+          <p className="text-xs font-black text-blue-800/60 uppercase tracking-widest mb-2">Cuota Mensual</p>
+          <div className="flex items-end gap-2 text-blue-900">
+            <span className="text-3xl font-black">{formatCOP(totalMonthly)}</span>
           </div>
-          <p className="text-[11px] font-bold text-gray-500 mt-2">Total compromisos del mes</p>
+          <p className="text-[11px] font-bold text-blue-800/50 mt-2">Total compromisos del mes</p>
         </div>
-        <div className="glass-panel p-6 rounded-3xl border-l-4 border-l-blue-500">
-          <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Deudas Activas</p>
-          <div className="flex items-end gap-2">
-            <span className="text-3xl font-black text-deep-900 dark:text-white">{activeDebts.length}</span>
-            <span className="text-sm font-bold text-gray-400 mb-1">Obligaciones</span>
+        <div className="bg-gradient-to-br from-[#f0fff4] to-[#dcffe8] p-6 rounded-[2rem] border border-green-100 shadow-sm">
+          <p className="text-xs font-black text-green-800/60 uppercase tracking-widest mb-2">Deudas Activas</p>
+          <div className="flex items-end gap-2 text-green-900">
+            <span className="text-3xl font-black">{activeDebts.length}</span>
+            <span className="text-sm font-bold opacity-60 mb-1">Obligaciones</span>
           </div>
-          <p className="text-[11px] font-bold text-gray-500 mt-2">Préstamos con saldo</p>
+          <p className="text-[11px] font-bold text-green-800/50 mt-2">Préstamos con saldo</p>
         </div>
       </div>
 
-      {/* FILTROS POR CATEGORÍA */}
-      <div className="mb-8 overflow-x-auto pb-4 custom-scrollbar">
-        <div className="flex gap-3">
-          <button
-            onClick={() => setFilterCategory('all')}
-            className={`px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest transition-all ${filterCategory === 'all' ? 'bg-deep-900 text-white shadow-lg dark:bg-mint-500' : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-white/5 dark:text-gray-400'}`}
-          >
-            Todas
-          </button>
+      {/* FILTRO POR CATEGORÍA (DROPDOWN) */}
+      <div className="mb-10 max-w-xs">
+        <label className="block text-[11px] font-black uppercase tracking-widest text-gray-400 mb-2 ml-1">Filtrar por categoría</label>
+        <select 
+          value={filterCategory} 
+          onChange={e => setFilterCategory(e.target.value)}
+          className="w-full rounded-2xl border border-gray-200 px-5 py-4 text-sm font-bold focus:border-mint-500 focus:ring-mint-500 shadow-inner dark:bg-deep-900 dark:border-white/10 dark:text-white transition outline-none appearance-none bg-no-repeat bg-[right_1.25rem_center] bg-[length:1em_1em]"
+          style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")` }}
+        >
+          <option value="all">Todas las categorías</option>
           {debtCategories.map(cat => (
-            <button
-              key={cat.id}
-              onClick={() => setFilterCategory(cat.id)}
-              className={`px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${filterCategory === cat.id ? 'bg-deep-900 text-white shadow-lg dark:bg-mint-500' : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-white/5 dark:text-gray-400'}`}
-            >
-              {cat.name}
-            </button>
+            <option key={cat.id} value={cat.id}>{cat.name}</option>
           ))}
-        </div>
+        </select>
       </div>
 
       {/* Lista de Deudas */}
