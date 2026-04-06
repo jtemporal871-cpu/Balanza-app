@@ -37,6 +37,7 @@ export default function Expenses() {
   const [accountId, setAccountId] = useState('')
   const [splitType, setSplitType] = useState('equal') 
   const [isDebtPayment, setIsDebtPayment] = useState(false)
+  const [isDebtJustification, setIsDebtJustification] = useState(false)
   const [selectedDebtId, setSelectedDebtId] = useState('')
   const [debtPaymentType, setDebtPaymentType] = useState('installments')
   
@@ -147,7 +148,8 @@ export default function Expenses() {
       setPayerId(expense.payer_id)
       setAccountId(expense.account_id || '')
       setSplitType(expense.split_type)
-      setIsDebtPayment(!!expense.debt_id)
+      setIsDebtPayment(!!expense.debt_id && !expense.is_debt_justification)
+      setIsDebtJustification(!!expense.is_debt_justification)
       setSelectedDebtId(expense.debt_id || '')
       
       const splitData = participants.map(p => {
@@ -170,6 +172,7 @@ export default function Expenses() {
       setAccountId('')
       setSplitType('equal')
       setIsDebtPayment(false)
+      setIsDebtJustification(false)
       setSelectedDebtId('')
       setDebtPaymentType('installments')
       
@@ -252,7 +255,7 @@ export default function Expenses() {
       const preparedSplits = validateAndPrepareSplits(totalAmount)
 
       let finalCategoryId = categoryId || null
-      if (isDebtPayment && !finalCategoryId) {
+      if ((isDebtPayment || isDebtJustification) && !finalCategoryId) {
         let debtCat = categories.find(c => c.name.toLowerCase() === 'deudas')
         if (!debtCat) {
           const { data: newCat, error: catError } = await supabase.from('categories').insert([{ user_id: user.id, name: 'Deudas', icon: 'Tag', color: 'bg-rose-500 text-white' }]).select()
@@ -271,7 +274,8 @@ export default function Expenses() {
         description: description.trim(),
         date,
         split_type: splitType,
-        debt_id: isDebtPayment && selectedDebtId ? selectedDebtId : null,
+        debt_id: (isDebtPayment || isDebtJustification) && selectedDebtId ? selectedDebtId : null,
+        is_debt_justification: !!isDebtJustification,
         account_id: accountId || null
       }
 
@@ -586,34 +590,68 @@ export default function Expenses() {
                 </div>
                 
                 {/* CHECKBOX DEUDAS */}
-                <div className="bg-gray-50 dark:bg-deep-950 p-5 rounded-2xl border border-gray-100 dark:border-white/5 space-y-4">
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      checked={isDebtPayment} 
-                      onChange={e => setIsDebtPayment(e.target.checked)}
-                      className="h-5 w-5 rounded border-gray-300 text-mint-600 focus:ring-mint-500 dark:border-white/20 dark:bg-deep-900 shadow-inner"
-                    />
-                    <span className="text-sm font-bold text-deep-900 dark:text-white">Este gasto es el pago de una deuda</span>
-                  </label>
+                <div className="bg-gray-50 dark:bg-deep-950 p-5 rounded-3xl border border-gray-100 dark:border-white/5 space-y-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <label className="flex items-start gap-3 cursor-pointer p-3 rounded-2xl hover:bg-white dark:hover:bg-white/5 transition-colors border border-transparent hover:border-gray-100 dark:hover:border-white/10 group">
+                      <div className="pt-1">
+                        <input 
+                          type="checkbox" 
+                          checked={isDebtPayment} 
+                          onChange={e => {
+                            setIsDebtPayment(e.target.checked);
+                            if (e.target.checked) setIsDebtJustification(false);
+                          }}
+                          className="h-5 w-5 rounded border-gray-300 text-mint-600 focus:ring-mint-500 dark:border-white/20 dark:bg-deep-900 shadow-inner"
+                        />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-bold text-deep-900 dark:text-white">Pago de deuda</span>
+                        <span className="text-[11px] text-gray-500 font-medium">Descontar del saldo de la deuda vinculada.</span>
+                      </div>
+                    </label>
+
+                    <label className="flex items-start gap-3 cursor-pointer p-3 rounded-2xl hover:bg-white dark:hover:bg-white/5 transition-colors border border-transparent hover:border-gray-100 dark:hover:border-white/10 group">
+                      <div className="pt-1">
+                        <input 
+                          type="checkbox" 
+                          checked={isDebtJustification} 
+                          onChange={e => {
+                            setIsDebtJustification(e.target.checked);
+                            if (e.target.checked) setIsDebtPayment(false);
+                          }}
+                          className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-white/20 dark:bg-deep-900 shadow-inner"
+                        />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-bold text-deep-900 dark:text-white">Justificación de deuda</span>
+                        <span className="text-[11px] text-gray-500 font-medium">Vincular este gasto como el destino del crédito.</span>
+                      </div>
+                    </label>
+                  </div>
                   
-                  {isDebtPayment && (
-                    <div className="animate-in fade-in slide-in-from-top-2 space-y-4 pt-1">
-                       <div className="flex gap-2 sm:gap-3 bg-gray-100 p-1.5 rounded-xl dark:bg-black/20 dark:border dark:border-white/5">
-                         <button type="button" onClick={() => setDebtPaymentType('installments')} className={`flex-1 py-2 text-[11px] sm:text-xs font-bold rounded-lg transition-all ${debtPaymentType === 'installments' ? 'bg-white text-deep-900 shadow-sm dark:bg-deep-800 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}>Pago de Cuota</button>
-                         <button type="button" onClick={() => setDebtPaymentType('capital')} className={`flex-1 py-2 text-[11px] sm:text-xs font-bold rounded-xl transition-all ${debtPaymentType === 'capital' ? 'bg-white text-deep-900 shadow-sm dark:bg-deep-800 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}>Abono a Capital</button>
+                  {(isDebtPayment || isDebtJustification) && (
+                    <div className="animate-in fade-in slide-in-from-top-2 space-y-4 pt-2 border-t border-gray-100 dark:border-white/5">
+                       {isDebtPayment && (
+                         <div className="flex gap-2 sm:gap-3 bg-gray-100 p-1.5 rounded-2xl dark:bg-black/20 dark:border dark:border-white/5 shadow-inner">
+                           <button type="button" onClick={() => setDebtPaymentType('installments')} className={`flex-1 py-2 text-[11px] sm:text-xs font-bold rounded-xl transition-all ${debtPaymentType === 'installments' ? 'bg-white text-deep-900 shadow-md dark:bg-deep-800 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}>Pago de Cuota</button>
+                           <button type="button" onClick={() => setDebtPaymentType('capital')} className={`flex-1 py-2 text-[11px] sm:text-xs font-bold rounded-xl transition-all ${debtPaymentType === 'capital' ? 'bg-white text-deep-900 shadow-md dark:bg-deep-800 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}>Abono a Capital</button>
+                         </div>
+                       )}
+                       
+                       <div className="space-y-2">
+                         <label className="text-[11px] font-black uppercase tracking-widest text-gray-400 ml-1">Seleccionar Deuda Objetivo</label>
+                         <select 
+                           required 
+                           value={selectedDebtId} 
+                           onChange={e => setSelectedDebtId(e.target.value)}
+                           className="w-full rounded-2xl border border-gray-200 px-5 py-4 text-sm font-bold focus:border-mint-500 focus:ring-mint-500 shadow-inner dark:bg-deep-900 dark:border-white/10 dark:text-white transition outline-none"
+                         >
+                           <option value="" disabled>Seleccione una deuda activa...</option>
+                           {debtsList.map(d => (
+                              <option key={d.id} value={d.id}>{d.name} - {isDebtPayment ? (debtPaymentType === 'installments' ? `Cuota ${formatCOP(d.installment_amount)}` : `Saldo ${formatCOP(d.remaining_amount)}`) : `Capital ${formatCOP(d.total_amount)}`}</option>
+                           ))}
+                         </select>
                        </div>
-                       <select 
-                         required 
-                         value={selectedDebtId} 
-                         onChange={e => setSelectedDebtId(e.target.value)}
-                         className="w-full rounded-xl border border-gray-200 px-5 py-3.5 text-sm font-bold focus:border-mint-500 focus:ring-mint-500 shadow-inner dark:bg-deep-900 dark:border-white/10 dark:text-white transition outline-none"
-                       >
-                         <option value="" disabled>Seleccione una deuda activa...</option>
-                         {debtsList.map(d => (
-                            <option key={d.id} value={d.id}>{d.name} - {debtPaymentType === 'installments' ? `Cuota de ${formatCOP(d.installment_amount)}` : `Pendiente ${formatCOP(d.remaining_amount)}`}</option>
-                         ))}
-                       </select>
                     </div>
                   )}
                 </div>
